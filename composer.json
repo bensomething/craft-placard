@@ -1,0 +1,28 @@
+{
+    "name": "bensmith/craft-og-image",
+    "description": "Generates configurable social / OG cards with Imagick for Craft entries that have no share image.",
+    "type": "craft-plugin",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.2",
+        "ext-imagick": "*",
+        "craftcms/cms": "^5.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "bensmith\\ogimage\\": "src/"
+        }
+    },
+    "extra": {
+        "handle": "og-image",
+        "name": "OG Image",
+        "developer": "Ben Smith",
+        "class": "bensmith\\ogimage\\Plugin"
+    },
+    "config": {
+        "allow-plugins": {
+            "yiisoft/yii2-composer": true,
+            "craftcms/plugin-installer": true
+        }
+    }
+}
