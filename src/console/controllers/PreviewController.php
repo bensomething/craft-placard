@@ -1,8 +1,8 @@
 <?php
 
-namespace bensmith\ogimage\console\controllers;
+namespace bensomething\ogimage\console\controllers;
 
-use bensmith\ogimage\Plugin;
+use bensomething\ogimage\Plugin;
 use Craft;
 use craft\elements\Entry;
 use craft\helpers\Console;

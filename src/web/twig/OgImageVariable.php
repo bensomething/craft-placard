@@ -1,8 +1,8 @@
 <?php
 
-namespace bensmith\ogimage\web\twig;
+namespace bensomething\ogimage\web\twig;
 
-use bensmith\ogimage\Plugin;
+use bensomething\ogimage\Plugin;
 use craft\base\Element;
 use craft\elements\Asset;
 use craft\elements\db\AssetQuery;

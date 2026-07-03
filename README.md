@@ -26,7 +26,7 @@ Add the repo to the consuming project's `composer.json`:
 Then:
 
 ```bash
-composer require bensmith/craft-og-image
+composer require bensomething/craft-og-image
 php craft plugin/install og-image
 ```
 
@@ -65,8 +65,8 @@ rules (singles, homepage, author bylines, related-entry backgrounds, section
 labels, …) live, keeping the plugin itself generic:
 
 ```php
-use bensmith\ogimage\services\Generator;
-use bensmith\ogimage\events\DefineCardEvent;
+use bensomething\ogimage\services\Generator;
+use bensomething\ogimage\events\DefineCardEvent;
 use yii\base\Event;
 
 Event::on(Generator::class, Generator::EVENT_DEFINE_CARD, function (DefineCardEvent $e) {

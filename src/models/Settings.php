@@ -1,11 +1,11 @@
 <?php
 
-namespace bensmith\ogimage\models;
+namespace bensomething\ogimage\models;
 
 use craft\base\Model;
 
 /**
- * Plugin settings — every knob the {@see \bensmith\ogimage\services\Generator} and
+ * Plugin settings — every knob the {@see \bensomething\ogimage\services\Generator} and
  * controller read. Override per project in `config/og-image.php` (values there win
  * over the CP settings), e.g.:
  *
@@ -72,7 +72,7 @@ class Settings extends Model
      * Asset field handles checked, in order, to decide whether an entry already
      * has a share image (so the generated card can be skipped) and to pick a
      * default background photo. Customise the derived card further via
-     * {@see \bensmith\ogimage\services\Generator::EVENT_DEFINE_CARD}.
+     * {@see \bensomething\ogimage\services\Generator::EVENT_DEFINE_CARD}.
      *
      * @var string[]
      */

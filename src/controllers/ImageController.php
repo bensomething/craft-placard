@@ -1,8 +1,8 @@
 <?php
 
-namespace bensmith\ogimage\controllers;
+namespace bensomething\ogimage\controllers;
 
-use bensmith\ogimage\Plugin;
+use bensomething\ogimage\Plugin;
 use Craft;
 use craft\elements\Entry;
 use craft\helpers\FileHelper;

@@ -1,5 +1,5 @@
 {
-    "name": "bensmith/craft-og-image",
+    "name": "bensomething/craft-og-image",
     "description": "Generates configurable social / OG cards with Imagick for Craft entries that have no share image.",
     "type": "craft-plugin",
     "license": "proprietary",
@@ -10,14 +10,14 @@
     },
     "autoload": {
         "psr-4": {
-            "bensmith\\ogimage\\": "src/"
+            "bensomething\\ogimage\\": "src/"
         }
     },
     "extra": {
         "handle": "og-image",
         "name": "OG Image",
         "developer": "Ben Smith",
-        "class": "bensmith\\ogimage\\Plugin"
+        "class": "bensomething\\ogimage\\Plugin"
     },
     "config": {
         "allow-plugins": {

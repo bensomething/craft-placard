@@ -1,10 +1,10 @@
 <?php
 
-namespace bensmith\ogimage;
+namespace bensomething\ogimage;
 
-use bensmith\ogimage\models\Settings;
-use bensmith\ogimage\services\Generator;
-use bensmith\ogimage\web\twig\OgImageVariable;
+use bensomething\ogimage\models\Settings;
+use bensomething\ogimage\services\Generator;
+use bensomething\ogimage\web\twig\OgImageVariable;
 use Craft;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
