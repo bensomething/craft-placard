@@ -2,11 +2,30 @@
     "name": "bensomething/craft-herald",
     "description": "Generates configurable social / OG cards with Imagick for Craft entries that have no share image.",
     "type": "craft-plugin",
-    "license": "mit",
+    "license": "MIT",
+    "keywords": [
+        "craft",
+        "cms",
+        "craftcms",
+        "plugin",
+        "og",
+        "opengraph",
+        "social",
+        "image",
+        "imagick"
+    ],
+    "support": {
+        "issues": "https://github.com/bensomething/craft-herald/issues",
+        "source": "https://github.com/bensomething/craft-herald"
+    },
     "require": {
-        "php": ">=8.2",
+        "php": "^8.2",
         "ext-imagick": "*",
-        "craftcms/cms": "^5.0"
+        "craftcms/cms": "^5.10"
+    },
+    "require-dev": {
+        "craftcms/ecs": "dev-main",
+        "craftcms/phpstan": "dev-main"
     },
     "autoload": {
         "psr-4": {
@@ -17,6 +36,9 @@
         "handle": "herald",
         "name": "Herald",
         "developer": "Ben Smith",
+        "developerUrl": "https://bensomething.com",
+        "documentationUrl": "https://github.com/bensomething/craft-herald",
+        "changelogUrl": "https://raw.githubusercontent.com/bensomething/craft-herald/develop/CHANGELOG.md",
         "class": "bensomething\\herald\\Plugin"
     },
     "config": {
@@ -24,5 +46,10 @@
             "yiisoft/yii2-composer": true,
             "craftcms/plugin-installer": true
         }
+    },
+    "scripts": {
+        "check-cs": "ecs check --ansi",
+        "fix-cs": "ecs check --ansi --fix",
+        "phpstan": "phpstan --memory-limit=1G"
     }
 }
