@@ -1,12 +1,12 @@
 <?php
 
-namespace bensomething\ogimage\models;
+namespace bensomething\herald\models;
 
 use craft\base\Model;
 
 /**
- * Plugin settings — every knob the {@see \bensomething\ogimage\services\Generator} and
- * controller read. Override per project in `config/og-image.php` (values there win
+ * Plugin settings — every knob the {@see \bensomething\herald\services\Generator} and
+ * controller read. Override per project in `config/herald.php` (values there win
  * over the CP settings), e.g.:
  *
  *   return [
@@ -72,7 +72,7 @@ class Settings extends Model
      * Asset field handles checked, in order, to decide whether an entry already
      * has a share image (so the generated card can be skipped) and to pick a
      * default background photo. Customise the derived card further via
-     * {@see \bensomething\ogimage\services\Generator::EVENT_DEFINE_CARD}.
+     * {@see \bensomething\herald\services\Generator::EVENT_DEFINE_CARD}.
      *
      * @var string[]
      */
@@ -83,7 +83,7 @@ class Settings extends Model
 
     /**
      * Site-relative (or absolute) URL to a static brand fallback card, returned by
-     * `craft.ogImage.default()` when there's no entry to generate from.
+     * `craft.herald.default()` when there's no entry to generate from.
      */
     public string $defaultImagePath = 'img/og-default.png';
 

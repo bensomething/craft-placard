@@ -1,8 +1,8 @@
 {
-    "name": "bensomething/craft-og-image",
+    "name": "bensomething/craft-herald",
     "description": "Generates configurable social / OG cards with Imagick for Craft entries that have no share image.",
     "type": "craft-plugin",
-    "license": "proprietary",
+    "license": "mit",
     "require": {
         "php": ">=8.2",
         "ext-imagick": "*",
@@ -10,14 +10,14 @@
     },
     "autoload": {
         "psr-4": {
-            "bensomething\\ogimage\\": "src/"
+            "bensomething\\herald\\": "src/"
         }
     },
     "extra": {
-        "handle": "og-image",
-        "name": "OG Image",
+        "handle": "herald",
+        "name": "Herald",
         "developer": "Ben Smith",
-        "class": "bensomething\\ogimage\\Plugin"
+        "class": "bensomething\\herald\\Plugin"
     },
     "config": {
         "allow-plugins": {

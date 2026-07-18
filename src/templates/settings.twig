@@ -1,4 +1,4 @@
-{# OG Image plugin settings. Anything set in config/og-image.php overrides these. #}
+{# Herald plugin settings. Anything set in config/herald.php overrides these. #}
 {% import "_includes/forms" as forms %}
 
 <h2>Canvas</h2>
@@ -128,10 +128,10 @@
 
 {{ forms.textField({
     label: 'Default image path',
-    instructions: 'URL returned by craft.ogImage.default().',
+    instructions: 'URL returned by craft.herald.default().',
     id: 'defaultImagePath',
     name: 'defaultImagePath',
     value: settings.defaultImagePath,
 }) }}
 
-<p class="light">Image field handles and other advanced options are best set in <code>config/og-image.php</code>.</p>
+<p class="light">Image field handles and other advanced options are best set in <code>config/herald.php</code>.</p>

@@ -1,8 +1,8 @@
 <?php
 
-namespace bensomething\ogimage\controllers;
+namespace bensomething\herald\controllers;
 
-use bensomething\ogimage\Plugin;
+use bensomething\herald\Plugin;
 use Craft;
 use craft\elements\Entry;
 use craft\helpers\FileHelper;

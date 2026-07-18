@@ -1,10 +1,10 @@
 <?php
 
-namespace bensomething\ogimage;
+namespace bensomething\herald;
 
-use bensomething\ogimage\models\Settings;
-use bensomething\ogimage\services\Generator;
-use bensomething\ogimage\web\twig\OgImageVariable;
+use bensomething\herald\models\Settings;
+use bensomething\herald\services\Generator;
+use bensomething\herald\web\twig\HeraldVariable;
 use Craft;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
@@ -14,15 +14,15 @@ use craft\web\UrlManager;
 use yii\base\Event;
 
 /**
- * OG Image plugin.
+ * Herald plugin.
  *
  * Generates social / OG cards with Imagick for entries that have no share image,
- * and exposes a `craft.ogImage` variable plus an `og/<entryId>.png` route that
+ * and exposes a `craft.herald` variable plus an `og/<entryId>.png` route that
  * streams the generated PNG (cached under storage/runtime).
  *
  * Everything project-specific — dimensions, fonts, logo, palette, and how a card's
  * title / label / date / background are derived from an entry — is configurable via
- * plugin settings, a `config/og-image.php` file, or the {@see Generator::EVENT_DEFINE_CARD}
+ * plugin settings, a `config/herald.php` file, or the {@see Generator::EVENT_DEFINE_CARD}
  * event. Nothing here is tied to a particular site.
  *
  * @property-read Generator $generator
@@ -47,18 +47,18 @@ class Plugin extends BasePlugin
             UrlManager::class,
             UrlManager::EVENT_REGISTER_SITE_URL_RULES,
             static function (RegisterUrlRulesEvent $event): void {
-                $event->rules['og/<entryId:\d+>.png'] = 'og-image/image/generate';
+                $event->rules['og/<entryId:\d+>.png'] = 'herald/image/generate';
             }
         );
 
-        // craft.ogImage.* helpers for templates.
+        // craft.herald.* helpers for templates.
         Event::on(
             CraftVariable::class,
             CraftVariable::EVENT_INIT,
             static function (Event $event): void {
                 /** @var CraftVariable $variable */
                 $variable = $event->sender;
-                $variable->set('ogImage', OgImageVariable::class);
+                $variable->set('herald', HeraldVariable::class);
             }
         );
     }
@@ -75,7 +75,7 @@ class Plugin extends BasePlugin
 
     protected function settingsHtml(): ?string
     {
-        return Craft::$app->getView()->renderTemplate('og-image/settings', [
+        return Craft::$app->getView()->renderTemplate('herald/settings', [
             'settings' => $this->getSettings(),
         ]);
     }

@@ -1,10 +1,10 @@
 <?php
 
-namespace bensomething\ogimage\services;
+namespace bensomething\herald\services;
 
-use bensomething\ogimage\events\DefineCardEvent;
-use bensomething\ogimage\models\Settings;
-use bensomething\ogimage\Plugin;
+use bensomething\herald\events\DefineCardEvent;
+use bensomething\herald\models\Settings;
+use bensomething\herald\Plugin;
 use Craft;
 use craft\elements\Asset;
 use craft\elements\db\AssetQuery;

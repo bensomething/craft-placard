@@ -1,4 +1,4 @@
-# OG Image (Craft plugin)
+# Herald (Craft plugin)
 
 Generates configurable social / OG cards with Imagick for Craft entries that have
 no share image. A black (configurable) card with the entry title set large in a
@@ -18,7 +18,7 @@ Add the repo to the consuming project's `composer.json`:
 ```json
 {
   "repositories": [
-    { "type": "vcs", "url": "git@github.com:YOURNAME/craft-og-image.git" }
+    { "type": "vcs", "url": "git@github.com:YOURNAME/craft-herald.git" }
   ]
 }
 ```
@@ -26,13 +26,13 @@ Add the repo to the consuming project's `composer.json`:
 Then:
 
 ```bash
-composer require bensomething/craft-og-image
-php craft plugin/install og-image
+composer require bensomething/craft-herald
+php craft plugin/install herald
 ```
 
 ## Configure
 
-Copy `example.config.php` to your project's `config/og-image.php` and edit it —
+Copy `example.config.php` to your project's `config/herald.php` and edit it —
 those values override the CP settings and are the recommended place to configure
 the plugin per project. Font / logo / config paths accept Craft aliases
 (`@root`, `@webroot`) and env vars.
@@ -44,17 +44,17 @@ your own licensed display font per project.
 ## Use in templates
 
 ```twig
-{% set og = craft.ogImage.entryHasImage(entry)
+{% set og = craft.herald.entryHasImage(entry)
     ? entry.seoImage.one().url          {# your own share image #}
-    : craft.ogImage.url(entry) %}        {# generated card #}
+    : craft.herald.url(entry) %}        {# generated card #}
 
-<meta property="og:image" content="{{ og ?? craft.ogImage.default() }}">
+<meta property="og:image" content="{{ og ?? craft.herald.default() }}">
 ```
 
-- `craft.ogImage.url(entry)` — generated card URL (`/og/<id>.png`), cache-busted.
-- `craft.ogImage.entryHasImage(entry)` — true if the entry has an image in any of
+- `craft.herald.url(entry)` — generated card URL (`/og/<id>.png`), cache-busted.
+- `craft.herald.entryHasImage(entry)` — true if the entry has an image in any of
   the configured `imageFieldHandles`.
-- `craft.ogImage.default()` — the static fallback URL (`defaultImagePath`).
+- `craft.herald.default()` — the static fallback URL (`defaultImagePath`).
 
 ## Customise a card per project
 
@@ -65,8 +65,8 @@ rules (singles, homepage, author bylines, related-entry backgrounds, section
 labels, …) live, keeping the plugin itself generic:
 
 ```php
-use bensomething\ogimage\services\Generator;
-use bensomething\ogimage\events\DefineCardEvent;
+use bensomething\herald\services\Generator;
+use bensomething\herald\events\DefineCardEvent;
 use yii\base\Event;
 
 Event::on(Generator::class, Generator::EVENT_DEFINE_CARD, function (DefineCardEvent $e) {
@@ -90,9 +90,9 @@ Event::on(Generator::class, Generator::EVENT_DEFINE_CARD, function (DefineCardEv
 ## Preview from the console
 
 ```bash
-php craft og-image/preview 123                     # a real entry's resolved card
-php craft og-image/preview --title="Hello world"   # a dummy card
-php craft og-image/preview --title="Hi" --image=/path/to/photo.jpg
+php craft herald/preview 123                     # a real entry's resolved card
+php craft herald/preview --title="Hello world"   # a dummy card
+php craft herald/preview --title="Hi" --image=/path/to/photo.jpg
 ```
 
 Output goes to `storage/runtime/og-images-preview/`.
@@ -111,7 +111,7 @@ Output goes to `storage/runtime/og-images-preview/`.
 | `logoPath` | *(none)* | PNG, top-left |
 | `useImageAsBackground` / `backgroundOpacity` | `false` / `0.25` | |
 | `imageFieldHandles` | `['seoImage','hero','featuredImage']` | "has image" + default background |
-| `defaultImagePath` | `img/og-default.png` | `craft.ogImage.default()` |
+| `defaultImagePath` | `img/og-default.png` | `craft.herald.default()` |
 
 ## Licence
 

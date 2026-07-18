@@ -1,19 +1,19 @@
 <?php
 
-namespace bensomething\ogimage\events;
+namespace bensomething\herald\events;
 
 use craft\elements\Asset;
 use craft\elements\Entry;
 use yii\base\Event;
 
 /**
- * Fired by {@see \bensomething\ogimage\services\Generator::EVENT_DEFINE_CARD} before a
+ * Fired by {@see \bensomething\herald\services\Generator::EVENT_DEFINE_CARD} before a
  * card is rendered, so each project decides how an entry maps to a card. The
  * plugin pre-fills sensible defaults (entry title, entry-type name, first share
  * image); a handler mutates whatever it needs:
  *
- *   use bensomething\ogimage\services\Generator;
- *   use bensomething\ogimage\events\DefineCardEvent;
+ *   use bensomething\herald\services\Generator;
+ *   use bensomething\herald\events\DefineCardEvent;
  *
  *   Event::on(Generator::class, Generator::EVENT_DEFINE_CARD, function (DefineCardEvent $e) {
  *       if ($e->entry->section?->handle === 'home') {
