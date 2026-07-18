@@ -54,7 +54,23 @@ your own licensed display font per project.
 - `craft.herald.url(entry)` — generated card URL (`/og/<id>.png`), cache-busted.
 - `craft.herald.entryHasImage(entry)` — true if the entry has an image in any of
   the configured `imageFieldHandles`.
+- `craft.herald.shareImageUrl(entry)` — the image that will actually be shared:
+  the first real image field (cropped to the card size), or the generated card
+  when there is none. This is what the share preview frames.
 - `craft.herald.default()` — the static fallback URL (`defaultImagePath`).
+
+## Share preview
+
+Herald can show how an entry's share image will *sit* when the page is shared. In
+the field-layout designer for any entry type, drag in the **Social Preview** UI
+element — the entry editor then shows the resolved share image framed as it
+appears on Facebook, X and Bluesky. Title / description / brand text are rendered
+as skeleton placeholders, so the preview is purely a viewer for the image and
+needs no SEO or brand configuration. The plugin settings screen shows the same
+preview against a sample card, so palette / font / dimension changes can be
+eyeballed after saving.
+
+The preview markup lives in `templates/_preview/cards.twig` in the plugin.
 
 ## Customise a card per project
 
@@ -102,16 +118,34 @@ Output goes to `storage/runtime/og-images-preview/`.
 | Setting | Default | Notes |
 |---|---|---|
 | `width` / `height` / `padding` | 1200 / 630 / 80 | Canvas |
-| `titleFontSize` / `maxLines` / `lineHeight` | 116 / 3 / 1.02 | Title fitting |
-| `uppercaseTitle` | `true` | |
-| `metaFontSize` / `logoHeight` | 28 / 48 | Top row |
-| `backgroundColor` / `titleColor` / `metaColor` | `#000000` / `#ffffff` / `#a3a3a3` | |
+| `maxLines` / `lineHeight` | 3 / 1.02 | Title wrapping |
+| `cardElements` | *(see below)* | Per-text-element size / position / colour / uppercase / hide |
+| `logoSize` / `logoPosition` / `logoPath` | 48 / `top-left` / *(none)* | Logo (PNG) |
+| `backgroundColor` | `#000000` | Canvas colour |
 | `displayFontPath` | *(bundled Inter Bold)* | Your licensed display font |
 | `labelFontPath` / `dateFontPath` | *(bundled Inter)* | |
-| `logoPath` | *(none)* | PNG, top-left |
 | `useImageAsBackground` / `backgroundOpacity` | `false` / `0.25` | |
 | `imageFieldHandles` | `['seoImage','hero','featuredImage']` | "has image" + default background |
 | `defaultImagePath` | `img/og-default.png` | `craft.herald.default()` |
+
+### `cardElements`
+
+One row per **text** element, in a fixed order — **Label, Date, Title** — each
+with `size`, `position`, `color`, `uppercase` and `hide`. Edit them as a grid on
+the settings screen, or in `config/herald.php`:
+
+```php
+'cardElements' => [
+    ['size' => 28,  'position' => 'top-left',    'color' => '#a3a3a3', 'uppercase' => false, 'hide' => false], // Label
+    ['size' => 28,  'position' => 'top-right',   'color' => '#a3a3a3', 'uppercase' => false, 'hide' => false], // Date
+    ['size' => 116, 'position' => 'bottom-left', 'color' => '#ffffff', 'uppercase' => true,  'hide' => false], // Title
+],
+```
+
+`size` is the font size; `position` is one of the nine anchors (`top`/`middle`/`bottom`
+× `left`/`center`/`right`); `hide` drops the element. The logo has its own
+`logoSize` / `logoPosition` / `logoPath`. The settings-page preview updates live
+from the fields before you save.
 
 ## Licence
 

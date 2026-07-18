@@ -40,6 +40,34 @@ class HeraldVariable
     }
 
     /**
+     * The image that will actually be shared for an entry: the first real asset in
+     * the configured image fields (cropped to card dimensions), or — when there is
+     * none — the generated card. This is what the social preview frames display.
+     */
+    public function shareImageUrl(Entry $entry): string
+    {
+        $settings = Plugin::getInstance()->getSettings();
+
+        foreach ($settings->imageFieldHandles as $handle) {
+            try {
+                $value = $entry->getFieldValue($handle);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            $asset = $value instanceof AssetQuery ? $value->one() : $value;
+            if ($asset instanceof Asset) {
+                $url = $asset->getUrl(['width' => $settings->width, 'height' => $settings->height, 'mode' => 'crop']);
+                if ($url) {
+                    return $url;
+                }
+            }
+        }
+
+        return $this->url($entry);
+    }
+
+    /**
      * Whether the element already has a usable share image (in any of the
      * configured image field handles), so the generated / default fallback can be
      * skipped. Safe to call on any value — missing fields are ignored.

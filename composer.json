@@ -1,6 +1,6 @@
 {
     "name": "bensomething/craft-herald",
-    "description": "Generates configurable social / OG cards with Imagick for Craft entries that have no share image.",
+    "description": "Configurable social cards for entries with no image.",
     "type": "craft-plugin",
     "license": "MIT",
     "keywords": [

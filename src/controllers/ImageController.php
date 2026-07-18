@@ -2,7 +2,9 @@
 
 namespace bensomething\herald\controllers;
 
+use bensomething\herald\models\Settings;
 use bensomething\herald\Plugin;
+use bensomething\herald\services\Generator;
 use Craft;
 use craft\elements\Entry;
 use craft\helpers\FileHelper;
@@ -42,7 +44,10 @@ class ImageController extends Controller
         $background = $card->background;
         $token = $entry->dateUpdated?->getTimestamp() ?? 0;
         $bgKey = $background ? $background->id . ':' . ($background->dateModified?->getTimestamp() ?? 0) : '';
-        $hash = substr(md5("$card->title|$card->label|$card->date|$token|$bgKey"), 0, 10);
+        // Fingerprint the settings so design changes (placement, fonts, palette,
+        // dimensions) bust the cache, not just changes to the card's content.
+        $design = md5(serialize(Plugin::getInstance()->getSettings()->getAttributes()));
+        $hash = substr(md5("$card->title|$card->label|$card->date|$token|$bgKey|$design"), 0, 10);
 
         $dir = Craft::$app->getPath()->getRuntimePath() . '/og-images';
         FileHelper::createDirectory($dir);
@@ -68,5 +73,70 @@ class ImageController extends Controller
         $response->content = file_get_contents($file);
 
         return $response;
+    }
+
+    /**
+     * Streams a card rendered from sample text, so the CP settings page can preview
+     * the design. Any query params matching settings attributes override the saved
+     * value, letting the preview update live as fields change (before saving). Not
+     * cached — it re-renders every request.
+     */
+    public function actionSample(): Response
+    {
+        $settings = $this->sampleSettings();
+
+        $generator = new Generator();
+        $generator->setSettings($settings);
+
+        $png = $generator->generate(
+            'The quick brown fox jumps over the lazy dog',
+            Craft::t('herald', 'Article'),
+        );
+
+        $response = Craft::$app->getResponse();
+        $response->format = Response::FORMAT_RAW;
+        $response->headers->set('Content-Type', 'image/png');
+        $response->headers->set('Cache-Control', 'no-store');
+        $response->content = $png;
+
+        return $response;
+    }
+
+    /**
+     * Clones the saved settings and applies any query-param overrides, cast to each
+     * attribute's type. Unknown params and array/asset settings are ignored.
+     */
+    private function sampleSettings(): Settings
+    {
+        $settings = clone Plugin::getInstance()->getSettings();
+        $params = Craft::$app->getRequest()->getQueryParams();
+
+        // The CP namespaces plugin-settings inputs under `settings`, which is how
+        // the live-preview form serialises them; unwrap so keys match our attributes.
+        if (isset($params['settings']) && is_array($params['settings'])) {
+            $params = $params['settings'];
+        }
+
+        foreach ($params as $key => $value) {
+            if (!property_exists($settings, $key) || is_array($value)) {
+                continue;
+            }
+
+            $current = $settings->$key;
+            $settings->$key = match (true) {
+                is_int($current) => (int)$value,
+                is_float($current) => (float)$value,
+                is_bool($current) => in_array($value, ['1', 'true', 'on', true, 1], true),
+                default => (string)$value,
+            };
+        }
+
+        // The element table arrives as a nested array; normalize it into shape.
+        if (isset($params['cardElements']) && is_array($params['cardElements'])) {
+            $settings->cardElements = $params['cardElements'];
+            $settings->normalizeCardElements();
+        }
+
+        return $settings;
     }
 }

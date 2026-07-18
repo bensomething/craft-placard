@@ -1,6 +1,27 @@
 {# Herald plugin settings. Anything set in config/herald.php overrides these. #}
 {% import "_includes/forms" as forms %}
 
+{# Anchor options shared by the logo + text elements. Native selects can't render
+   Font Awesome icons in options, so prefix each with a matching Unicode arrow.
+   "Center" becomes "Centre" outside US English. #}
+{% set positions = constant('bensomething\\herald\\models\\Settings::POSITIONS') %}
+{% set arrows = {
+    'top-left': '↖', 'top-center': '↑', 'top-right': '↗',
+    'middle-left': '←', 'middle-center': '•', 'middle-right': '→',
+    'bottom-left': '↙', 'bottom-center': '↓', 'bottom-right': '↘',
+} %}
+{# House style is British throughout (cf. "Colour"), so "Center" → "Centre". #}
+{% set positionOptions = [] %}
+{% for p in positions %}
+    {% set positionOptions = positionOptions|merge([{
+        label: (arrows[p] ?? '') ~ '  ' ~ (p|replace({'-': ' '})|title|replace({'Center': 'Centre'})),
+        value: p,
+    }]) %}
+{% endfor %}
+
+<div class="herald-settings" data-sample-url="{{ actionUrl('herald/image/sample') }}">
+<div class="herald-settings__main">
+
 <h2>Canvas</h2>
 
 {{ forms.textField({
@@ -33,18 +54,6 @@
     type: 'number',
 }) }}
 
-<hr>
-<h2>Title</h2>
-
-{{ forms.textField({
-    label: 'Title font size',
-    id: 'titleFontSize',
-    name: 'titleFontSize',
-    value: settings.titleFontSize,
-    size: 6,
-    type: 'number',
-}) }}
-
 {{ forms.textField({
     label: 'Max lines',
     instructions: 'Titles longer than this are clamped with an ellipsis.',
@@ -55,22 +64,100 @@
     type: 'number',
 }) }}
 
-{{ forms.lightswitchField({
-    label: 'Uppercase title',
-    id: 'uppercaseTitle',
-    name: 'uppercaseTitle',
-    on: settings.uppercaseTitle,
+<hr>
+<h2>Logo</h2>
+
+{{ forms.textField({
+    label: 'Size',
+    instructions: 'Logo height in pixels.',
+    id: 'logoSize',
+    name: 'logoSize',
+    value: settings.logoSize,
+    size: 6,
+    type: 'number',
+}) }}
+
+{{ forms.selectField({
+    label: 'Position',
+    id: 'logoPosition',
+    name: 'logoPosition',
+    value: settings.logoPosition,
+    options: positionOptions,
+}) }}
+
+{{ forms.textField({
+    label: 'Logo path',
+    instructions: 'Absolute path or Craft alias to a PNG logo. Leave blank for no logo.',
+    id: 'logoPath',
+    name: 'logoPath',
+    value: settings.logoPath,
+    placeholder: '@webroot/img/logo.png',
 }) }}
 
 <hr>
-<h2>Palette</h2>
+<h2>Text Elements</h2>
 
-{{ forms.textField({ label: 'Background colour', id: 'backgroundColor', name: 'backgroundColor', value: settings.backgroundColor, size: 10 }) }}
-{{ forms.textField({ label: 'Title colour', id: 'titleColor', name: 'titleColor', value: settings.titleColor, size: 10 }) }}
-{{ forms.textField({ label: 'Label / date colour', id: 'metaColor', name: 'metaColor', value: settings.metaColor, size: 10 }) }}
+{% set elementLabels = constant('bensomething\\herald\\models\\Settings::ELEMENTS')|values %}
+{% set elementRows = [] %}
+{% for i, row in settings.cardElements %}
+    {% set elementRows = elementRows|merge([{
+        item: elementLabels[i] ?? '',
+        size: row.size,
+        position: row.position,
+        color: row.color ? '#' ~ row.color|trim('#') : '',
+        uppercase: row.uppercase,
+        hide: row.hide,
+    }]) %}
+{% endfor %}
+
+{{ forms.editableTableField({
+    instructions: 'Size is the font size; position anchors the element on the card.',
+    id: 'cardElements',
+    name: 'cardElements',
+    staticRows: true,
+    allowAdd: false,
+    allowDelete: false,
+    allowReorder: false,
+    cols: {
+        item: { heading: 'Item', type: 'heading', width: 50 },
+        size: { heading: 'Size', type: 'number', width: 50 },
+        color: { heading: 'Colour', type: 'color', width: 120 },
+        uppercase: { heading: 'Uppercase', type: 'checkbox', width: 80 },
+        hide: { heading: 'Hide', type: 'checkbox', width: 60 },
+        position: { heading: 'Position', type: 'select', options: positionOptions },
+    },
+    rows: elementRows,
+}) }}
 
 <hr>
-<h2>Assets</h2>
+<h2>Background</h2>
+
+{# colorField strips the leading # from its text input (submitting bare hex), but
+   uses the value verbatim for the swatch — so pass a #-prefixed value or the swatch
+   renders no colour. The generator tolerates the bare hex that comes back on save. #}
+<div class="herald-palette">
+    {{ forms.colorField({ label: 'Colour', id: 'backgroundColor', name: 'backgroundColor', value: '#' ~ settings.backgroundColor|trim('#') }) }}
+</div>
+
+{{ forms.lightswitchField({
+    label: 'Use share image as background',
+    instructions: 'Render the entry’s first share image faintly behind the card.',
+    id: 'useImageAsBackground',
+    name: 'useImageAsBackground',
+    on: settings.useImageAsBackground,
+}) }}
+
+{{ forms.textField({
+    label: 'Background opacity',
+    instructions: '0–1.',
+    id: 'backgroundOpacity',
+    name: 'backgroundOpacity',
+    value: settings.backgroundOpacity,
+    size: 6,
+}) }}
+
+<hr>
+<h2>Fonts</h2>
 
 {{ forms.textField({
     label: 'Display font path',
@@ -97,34 +184,8 @@
     value: settings.dateFontPath,
 }) }}
 
-{{ forms.textField({
-    label: 'Logo path',
-    instructions: 'Absolute path or Craft alias to a PNG logo (top-left). Leave blank for no logo.',
-    id: 'logoPath',
-    name: 'logoPath',
-    value: settings.logoPath,
-    placeholder: '@webroot/img/logo.png',
-}) }}
-
 <hr>
-<h2>Background &amp; fallback</h2>
-
-{{ forms.lightswitchField({
-    label: 'Use share image as background',
-    instructions: 'Render the entry’s first share image faintly behind the card.',
-    id: 'useImageAsBackground',
-    name: 'useImageAsBackground',
-    on: settings.useImageAsBackground,
-}) }}
-
-{{ forms.textField({
-    label: 'Background opacity',
-    instructions: '0–1.',
-    id: 'backgroundOpacity',
-    name: 'backgroundOpacity',
-    value: settings.backgroundOpacity,
-    size: 6,
-}) }}
+<h2>Fallback</h2>
 
 {{ forms.textField({
     label: 'Default image path',
@@ -135,3 +196,106 @@
 }) }}
 
 <p class="light">Image field handles and other advanced options are best set in <code>config/herald.php</code>.</p>
+
+</div>{# /.herald-settings__main #}
+
+<div class="herald-settings__aside">
+    <div class="herald-settings__preview">
+        <h2>Preview</h2>
+        <p class="light">Updates as you edit; save to keep the changes.</p>
+        {{ include('herald/_preview/cards', { imageUrl: actionUrl('herald/image/sample') }, with_context = false) }}
+    </div>
+</div>
+
+</div>{# /.herald-settings #}
+
+<style>
+    /* Default `align-items: stretch` makes the aside as tall as the fields column,
+       which the sticky preview needs room to travel within, and gives the pane's
+       left border / background the full column height to span. */
+    .herald-settings { display: flex; gap: 40px; }
+    .herald-settings__main { flex: 1 1 auto; min-width: 0; }
+    /* Dividers bleed to the pane's left edge and across the column gap to the
+       preview, so they read as full-width rules across the fields area. */
+    .herald-settings__main hr {
+        margin-left: calc(var(--pane-padding, 24px) * -1);
+        margin-right: -40px;
+    }
+    /* Negative pane-padding margins bleed the aside to the top / right / bottom
+       edges of the settings pane (Craft's own breakout idiom, cf. #content-notice),
+       then inner padding restores breathing room. --pane-padding tracks the CP's
+       responsive value, so this stays flush at every width. */
+    .herald-settings__aside {
+        flex: 0 0 440px; box-sizing: border-box;
+        margin: calc(var(--pane-padding, 24px) * -1) calc(var(--pane-padding, 24px) * -1) calc(var(--pane-padding, 24px) * -1) 0;
+        padding: var(--pane-padding, 24px) var(--pane-padding, 24px) var(--pane-padding, 24px) 32px;
+        border-left: 1px solid var(--hairline-color, #cdd8e4);
+        background: var(--gray-050, #f9fafc);
+        /* Follow the pane's rounded right corners so the bled background doesn't
+           square off past them. */
+        border-top-right-radius: var(--pane-border-radius, 5px);
+        border-bottom-right-radius: var(--pane-border-radius, 5px);
+    }
+    .herald-settings__preview { position: sticky; top: 24px; }
+    .herald-settings__preview > h2 { margin-top: 0; }
+    /* Let the preview fill the aside rather than the component's default 480px cap,
+       so widening the column widens the cards. */
+    .herald-settings__preview .herald-sp { max-width: none; }
+    /* Roomier preview on wide screens; falls back to the base width on medium. */
+    @media (min-width: 1500px) {
+        .herald-settings__aside { flex-basis: 620px; }
+    }
+
+    /* Palette swatches sit in a single row rather than stacking. */
+    .herald-palette { display: flex; flex-wrap: wrap; gap: 24px; }
+    .herald-palette > .field { margin-top: 0; }
+
+    /* Stack on narrow CP panes — the flex row would squeeze both columns otherwise. */
+    @media (max-width: 900px) {
+        .herald-settings { display: block; }
+        .herald-settings__main hr { margin-left: 0; margin-right: 0; }
+        .herald-settings__aside {
+            flex-basis: auto; margin: 32px 0 0; padding: 24px 0 0;
+            border-left: 0; background: none;
+        }
+        .herald-settings__preview { position: static; }
+    }
+</style>
+
+{% js %}
+// Live preview: poll the (unsaved) field values and re-render the sample card when
+// anything changes. Polling rather than input/change events because the editable
+// table manages its own inputs and doesn't reliably surface those events here.
+(function () {
+    var root = document.querySelector('.herald-settings');
+    if (!root) return;
+    var main = root.querySelector('.herald-settings__main');
+    var base = root.dataset.sampleUrl;
+    var last = null;
+
+    function serialize() {
+        var params = new URLSearchParams();
+        main.querySelectorAll('[name]').forEach(function (el) {
+            if (!el.name || el.name === 'cardElements') return; // skip the array-reset input
+            if ((el.type === 'checkbox' || el.type === 'radio') && !el.checked) return;
+            params.set(el.name, el.value);
+        });
+        return params;
+    }
+
+    function tick() {
+        var params = serialize();
+        var key = params.toString();
+        if (key === last) return;
+        last = key;
+        params.set('_', Date.now());
+        var url = base + (base.indexOf('?') >= 0 ? '&' : '?') + params.toString();
+        root.querySelectorAll('.herald-settings__preview .herald-sp__img').forEach(function (img) {
+            img.style.backgroundImage = "url('" + url + "')";
+        });
+    }
+
+    last = serialize().toString(); // prime, so the first tick doesn't refetch the initial render
+    setInterval(tick, 400);
+})();
+{% endjs %}

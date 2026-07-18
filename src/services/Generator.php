@@ -39,6 +39,15 @@ class Generator extends Component
     }
 
     /**
+     * Renders with ad-hoc settings instead of the saved ones — used by the CP
+     * settings preview to reflect unsaved edits.
+     */
+    public function setSettings(Settings $settings): void
+    {
+        $this->settings = $settings;
+    }
+
+    /**
      * Builds a card spec for an entry: fills defaults (title, entry-type label,
      * first share image) then fires {@see self::EVENT_DEFINE_CARD} so the project
      * can customise it. Returns the resolved event.
@@ -73,7 +82,7 @@ class Generator extends Component
         $dateFont = $this->font($s->dateFontPath, 'Inter-Regular.ttf');
 
         $img = new Imagick();
-        $img->newImage($w, $h, new ImagickPixel($s->backgroundColor));
+        $img->newImage($w, $h, $this->color($s->backgroundColor));
         $img->setImageFormat('png');
 
         // Optional background image: cover-fit, grayscale, faint, behind everything.
@@ -81,49 +90,52 @@ class Generator extends Component
             $this->compositeBackground($img, $backgroundBlob);
         }
 
-        // Logo (top-left), if configured. Its width offsets the label.
-        $logoWidth = $this->compositeLogo($img, $pad, $pad);
+        // Logo has its own size + position; the text elements read their rows from
+        // the settings table (size, position, colour, uppercase).
+        $logo = $this->compositeLogo($img, $s->logoPosition, $s->logoSize);
 
-        // Top row text, vertically centred on the logo band.
-        $topBaseline = $pad + (int)round($s->logoHeight / 2) + 10;
+        $labelStyle = $this->elementStyle('label');
+        $this->drawText(
+            $img,
+            $labelFont,
+            $this->prepText($label, $labelStyle['uppercase']),
+            $labelStyle,
+            $this->logoInset($labelStyle['position'], $logo),
+        );
 
-        // Type label, to the right of the logo.
-        if ($label !== null && $label !== '') {
-            $labelX = $pad + ($logoWidth > 0 ? $logoWidth + 48 : 0);
-            $draw = new ImagickDraw();
-            $draw->setFont($labelFont);
-            $draw->setFontSize($s->metaFontSize);
-            $draw->setFillColor(new ImagickPixel($s->metaColor));
-            $img->annotateImage($draw, $labelX, $topBaseline, 0, $label);
-        }
+        $dateStyle = $this->elementStyle('date');
+        $this->drawText(
+            $img,
+            $dateFont,
+            $this->prepText($date, $dateStyle['uppercase']),
+            $dateStyle,
+            $this->logoInset($dateStyle['position'], $logo),
+        );
 
-        // Date, right-aligned.
-        if ($date !== null && $date !== '') {
-            $draw = new ImagickDraw();
-            $draw->setFont($dateFont);
-            $draw->setFontSize($s->metaFontSize);
-            $draw->setFillColor(new ImagickPixel($s->metaColor));
-            $draw->setTextAlignment(Imagick::ALIGN_RIGHT);
-            $img->annotateImage($draw, $w - $pad, $topBaseline, 0, $date);
-        }
-
-        // Title (bottom-left): display font, fitted + wrapped.
-        $title = trim($s->uppercaseTitle ? mb_strtoupper($title) : $title);
-        if ($title !== '') {
-            [$lines, $fontSize, $lineHeight] = $this->fitTitle($img, $displayFont, $title, $maxWidth);
+        // Title: display font, multi-line fitted + wrapped, anchored per its row.
+        $titleStyle = $this->elementStyle('title');
+        $title = $this->prepText($title, $titleStyle['uppercase']);
+        if ($title !== '' && !$titleStyle['hide']) {
+            [$lines, $fontSize, $lineHeight] = $this->fitTitle($img, $displayFont, $title, $maxWidth, $titleStyle['size']);
+            $totalHeight = count($lines) * $lineHeight;
+            [$vAlign, $hAlign] = $this->anchor($titleStyle['position']);
 
             $draw = new ImagickDraw();
             $draw->setFont($displayFont);
             $draw->setFontSize($fontSize);
-            $draw->setFillColor(new ImagickPixel($s->titleColor));
+            $draw->setFillColor($this->color($titleStyle['color'] ?: '#ffffff'));
 
-            // Anchor the block to the bottom padding.
-            $totalHeight = count($lines) * $lineHeight;
-            $firstBaseline = $h - $pad - $totalHeight + $fontSize;
+            $firstBaseline = match ($vAlign) {
+                'top' => $pad + $fontSize,
+                'middle' => (int)round(($h - $totalHeight) / 2) + $fontSize,
+                default => $h - $pad - $totalHeight + $fontSize,
+            };
+            [$titleX, $align] = $this->horizontal($hAlign);
+            $draw->setTextAlignment($align);
 
             $y = $firstBaseline;
             foreach ($lines as $line) {
-                $img->annotateImage($draw, $pad, $y, 0, $line);
+                $img->annotateImage($draw, $titleX, $y, 0, $line);
                 $y += $lineHeight;
             }
         }
@@ -166,9 +178,8 @@ class Generator extends Component
      *
      * Returns [lines, fontSize, lineHeight].
      */
-    private function fitTitle(Imagick $img, string $font, string $text, float $maxWidth): array
+    private function fitTitle(Imagick $img, string $font, string $text, float $maxWidth, int $size): array
     {
-        $size = $this->settings->titleFontSize;
         $maxLines = $this->settings->maxLines;
         $draw = $this->measureDraw($font, $size);
 
@@ -303,7 +314,7 @@ class Generator extends Component
             $bg->readImageBlob($blob);
 
             // Scale + centre-crop to exactly fill the canvas.
-            $bg->setImageBackgroundColor(new ImagickPixel($this->settings->backgroundColor));
+            $bg->setImageBackgroundColor($this->color($this->settings->backgroundColor));
             $bg->cropThumbnailImage($this->settings->width, $this->settings->height);
 
             // Desaturate, soften slightly, then drop to the configured opacity.
@@ -320,29 +331,169 @@ class Generator extends Component
     }
 
     /**
-     * Composites the configured logo at ($x, $y), scaled to the settings height.
-     * Returns the scaled logo width, or 0 when no logo is configured / readable.
+     * Composites the configured logo, scaled to $height, at the given anchor
+     * position (one of the 9 anchors). Returns `['width','height','vAlign','hAlign']`
+     * so the meta text can dodge it, or null when no logo is configured / readable.
+     *
+     * @return array{width:int,height:int,vAlign:string,hAlign:string}|null
      */
-    private function compositeLogo(Imagick $img, int $x, int $y): int
+    private function compositeLogo(Imagick $img, string $position, int $height): ?array
     {
         $path = $this->path($this->settings->logoPath);
-        if ($path === null || !is_file($path)) {
-            return 0;
+        if ($path === null || !is_file($path) || $height <= 0) {
+            return null;
         }
+
+        [$vAlign, $hAlign] = $this->anchor($position);
+        $w = $this->settings->width;
+        $h = $this->settings->height;
+        $pad = $this->settings->padding;
 
         try {
             $logo = new Imagick();
             $logo->readImage($path);
-            $logo->resizeImage(0, $this->settings->logoHeight, Imagick::FILTER_LANCZOS, 1);
+            $logo->resizeImage(0, $height, Imagick::FILTER_LANCZOS, 1);
+
+            $lw = $logo->getImageWidth();
+            $lh = $logo->getImageHeight();
+            $x = match ($hAlign) {
+                'center' => (int)round(($w - $lw) / 2),
+                'right' => $w - $pad - $lw,
+                default => $pad,
+            };
+            $y = match ($vAlign) {
+                'middle' => (int)round(($h - $lh) / 2),
+                'bottom' => $h - $pad - $lh,
+                default => $pad,
+            };
 
             $img->compositeImage($logo, Imagick::COMPOSITE_OVER, $x, $y);
-            $width = $logo->getImageWidth();
             $logo->destroy();
 
-            return $width;
+            return ['width' => $lw, 'height' => $lh, 'vAlign' => $vAlign, 'hAlign' => $hAlign];
         } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    // -- Element placement ----------------------------------------------------
+
+    /**
+     * The resolved style row for an element, keyed by its position in
+     * {@see Settings::ELEMENTS}. Falls back to sane values for missing cells.
+     *
+     * @return array{size:int, position:string, color:string, uppercase:bool}
+     */
+    private function elementStyle(string $key): array
+    {
+        $index = array_search($key, array_keys(Settings::ELEMENTS), true);
+        $row = array_values($this->settings->cardElements)[$index] ?? [];
+
+        return [
+            'size' => (int)($row['size'] ?? 0),
+            'position' => (string)($row['position'] ?? 'top-left'),
+            'color' => (string)($row['color'] ?? ''),
+            'uppercase' => !empty($row['uppercase']) && !in_array($row['uppercase'], ['0', 0, false], true),
+            'hide' => !empty($row['hide']) && !in_array($row['hide'], ['0', 0, false], true),
+        ];
+    }
+
+    /** Splits a position anchor into [vertical, horizontal] with safe fallbacks. */
+    private function anchor(string $position): array
+    {
+        [$v, $h] = array_pad(explode('-', $position, 2), 2, '');
+
+        return [
+            in_array($v, ['top', 'middle', 'bottom'], true) ? $v : 'top',
+            in_array($h, ['left', 'center', 'right'], true) ? $h : 'left',
+        ];
+    }
+
+    /** Maps a horizontal align to [x, Imagick text alignment]. */
+    private function horizontal(string $hAlign): array
+    {
+        $w = $this->settings->width;
+        $pad = $this->settings->padding;
+
+        return match ($hAlign) {
+            'center' => [(int)round($w / 2), Imagick::ALIGN_CENTER],
+            'right' => [$w - $pad, Imagick::ALIGN_RIGHT],
+            default => [$pad, Imagick::ALIGN_LEFT],
+        };
+    }
+
+    /** Uppercases + trims a nullable text value per the element's setting. */
+    private function prepText(?string $text, bool $uppercase): string
+    {
+        $text = (string)$text;
+
+        return trim($uppercase ? mb_strtoupper($text) : $text);
+    }
+
+    /**
+     * Horizontal inset to keep a single-line element clear of the logo when they
+     * share a left or right corner (the classic logo + kicker row). 0 otherwise.
+     */
+    private function logoInset(string $position, ?array $logo): int
+    {
+        if ($logo === null) {
             return 0;
         }
+
+        [$v, $h] = $this->anchor($position);
+        if ($v !== $logo['vAlign'] || $h !== $logo['hAlign'] || $h === 'center') {
+            return 0;
+        }
+
+        return $logo['width'] + 48;
+    }
+
+    /** Draws a single line of text at its anchor, inset past the logo if needed. */
+    private function drawText(Imagick $img, string $font, string $text, array $style, int $inset = 0): void
+    {
+        if ($text === '' || !empty($style['hide'])) {
+            return;
+        }
+
+        $h = $this->settings->height;
+        $pad = $this->settings->padding;
+        $size = $style['size'];
+        [$vAlign, $hAlign] = $this->anchor($style['position']);
+        [$x, $align] = $this->horizontal($hAlign);
+
+        // Push away from the logo (inward) on whichever side we're anchored to.
+        $x += $hAlign === 'right' ? -$inset : $inset;
+
+        $baseline = match ($vAlign) {
+            'top' => $pad + $size,
+            'middle' => (int)round(($h + $size) / 2),
+            default => $h - $pad,
+        };
+
+        $draw = new ImagickDraw();
+        $draw->setFont($font);
+        $draw->setFontSize($size);
+        $draw->setFillColor($this->color($style['color'] ?: '#ffffff'));
+        $draw->setTextAlignment($align);
+        $img->annotateImage($draw, $x, $baseline, 0, $text);
+    }
+
+    /**
+     * Builds an ImagickPixel from a configured colour, tolerating bare hex — the CP
+     * colour fields submit `000000`, not `#000000`, which Imagick can't parse. Named
+     * colours and `#rgb`/`#rrggbb` pass through unchanged; empties fall back to black.
+     */
+    private function color(string $value): ImagickPixel
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            $value = '#000000';
+        } elseif (preg_match('/^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/', $value)) {
+            $value = "#$value";
+        }
+
+        return new ImagickPixel($value);
     }
 
     private function measureDraw(string $font, float $size): ImagickDraw

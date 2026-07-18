@@ -2,13 +2,16 @@
 
 namespace bensomething\herald;
 
+use bensomething\herald\fieldlayoutelements\SocialPreview;
 use bensomething\herald\models\Settings;
 use bensomething\herald\services\Generator;
 use bensomething\herald\web\twig\HeraldVariable;
 use Craft;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
+use craft\events\DefineFieldLayoutElementsEvent;
 use craft\events\RegisterUrlRulesEvent;
+use craft\models\FieldLayout;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
 use yii\base\Event;
@@ -59,6 +62,16 @@ class Plugin extends BasePlugin
                 /** @var CraftVariable $variable */
                 $variable = $event->sender;
                 $variable->set('herald', HeraldVariable::class);
+            }
+        );
+
+        // "Social Preview" field-layout element — drag into any entry type's layout
+        // to preview the share appearance inline in the editor.
+        Event::on(
+            FieldLayout::class,
+            FieldLayout::EVENT_DEFINE_UI_ELEMENTS,
+            static function (DefineFieldLayoutElementsEvent $event): void {
+                $event->elements[] = SocialPreview::class;
             }
         );
     }
