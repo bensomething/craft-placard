@@ -86,29 +86,32 @@ Output goes to `storage/runtime/og-images-preview/`.
 | Setting | Default | Notes |
 |---|---|---|
 | `width` / `height` / `padding` | 1200 / 630 / 80 | Canvas |
-| `maxLines` / `lineHeight` | 3 / 1.02 | Title wrapping |
-| `cardElements` | *(see below)* | Per-text-element size / position / colour / uppercase / hide |
+| `lineHeight` | 1.02 | Line height for the wrapping elements |
+| `cardElements` | *(see below)* | Per-text-element size / max lines / colour / display / position |
 | `logoSize` / `logoPosition` / `logoPath` | 48 / `top-left` / *(none)* | Logo (PNG) |
 | `backgroundColor` | `#000000` | Canvas colour |
 | `displayFontPath` | *(bundled Inter Bold)* | Your licensed display font |
-| `labelFontPath` / `dateFontPath` | *(bundled Inter)* | |
+| `labelFontPath` / `descriptionFontPath` / `dateFontPath` | *(bundled Inter)* | One font per text element |
 | `useImageAsBackground` / `backgroundOpacity` | `false` / `0.25` | |
 | `imageFieldHandles` | `['seoImage','hero','featuredImage']` | "has image" + default background |
 | `defaultImagePath` | `img/og-default.png` | `craft.placard.default()` |
 
 ### `cardElements`
 
-One row per **text** element, in a fixed order — **Label, Date, Title** — each with `size`, `position`, `color`, `uppercase` and `hide`. Edit them as a grid on the settings screen, or in `config/placard.php`:
+One row per **text** element, in a fixed order — **Label, Title, Description, Date** — each with `size`, `maxLines`, `color`, `display` and `position`. Edit them as a grid on the settings screen, or in `config/placard.php`:
 
 ```php
 'cardElements' => [
-    ['size' => 28,  'position' => 'top-left',    'color' => '#a3a3a3', 'uppercase' => false, 'hide' => false], // Label
-    ['size' => 28,  'position' => 'top-right',   'color' => '#a3a3a3', 'uppercase' => false, 'hide' => false], // Date
-    ['size' => 116, 'position' => 'bottom-left', 'color' => '#ffffff', 'uppercase' => true,  'hide' => false], // Title
+    ['size' => 28,  'maxLines' => 1, 'color' => '#a3a3a3', 'display' => 'normal',    'position' => 'top-left'],     // Label
+    ['size' => 116, 'maxLines' => 3, 'color' => '#ffffff', 'display' => 'uppercase', 'position' => 'bottom-left'],  // Title
+    ['size' => 32,  'maxLines' => 2, 'color' => '#a3a3a3', 'display' => 'hidden',    'position' => 'middle-left'],  // Description
+    ['size' => 28,  'maxLines' => 1, 'color' => '#a3a3a3', 'display' => 'normal',    'position' => 'top-right'],    // Date
 ],
 ```
 
-`size` is the font size; `position` is one of the nine anchors (`top`/`middle`/`bottom` × `left`/`center`/`right`); `hide` drops the element. The logo has its own `logoSize` / `logoPosition` / `logoPath`. The settings-page preview updates live from the fields before you save.
+`size` is the font size. `position` is one of the nine anchors (`top`/`middle`/`bottom` × `left`/`center`/`right`); each element is anchored independently, so it's up to you to pick anchors that don't collide. `display` is `normal`, `uppercase` or `hidden`. `maxLines` clamps the element with a trailing ellipsis, and only applies to the two elements that wrap — **Title** and **Description**; the rest are drawn as a single line.
+
+**Title** and **Description** default to the entry title and nothing respectively; set them per project via `Generator::EVENT_DEFINE_CARD`. The logo has its own `logoSize` / `logoPosition` / `logoPath`. The settings-page preview updates live from the fields before you save.
 
 ## Licence
 

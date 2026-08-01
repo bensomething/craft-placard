@@ -47,7 +47,7 @@ class ImageController extends Controller
         // Fingerprint the settings so design changes (placement, fonts, palette,
         // dimensions) bust the cache, not just changes to the card's content.
         $design = md5(serialize(Plugin::getInstance()->getSettings()->getAttributes()));
-        $hash = substr(md5("$card->title|$card->label|$card->date|$token|$bgKey|$design"), 0, 10);
+        $hash = substr(md5("$card->title|$card->label|$card->description|$card->date|$token|$bgKey|$design"), 0, 10);
 
         $dir = Craft::$app->getPath()->getRuntimePath() . '/og-images';
         FileHelper::createDirectory($dir);
@@ -63,7 +63,13 @@ class ImageController extends Controller
                 }
             }
 
-            file_put_contents($file, $generator->generate($card->title, $card->label, $backgroundBlob, $card->date));
+            file_put_contents($file, $generator->generate(
+                $card->title,
+                $card->label,
+                $backgroundBlob,
+                $card->date,
+                $card->description,
+            ));
         }
 
         $response = Craft::$app->getResponse();
@@ -91,6 +97,9 @@ class ImageController extends Controller
         $png = $generator->generate(
             'The quick brown fox jumps over the lazy dog',
             Craft::t('placard', 'Article'),
+            null,
+            null,
+            Craft::t('placard', 'A short standfirst, so the description row previews with something in it.'),
         );
 
         $response = Craft::$app->getResponse();

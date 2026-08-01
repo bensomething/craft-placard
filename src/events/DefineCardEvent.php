@@ -33,6 +33,9 @@ class DefineCardEvent extends Event
     /** Kicker above the title. Defaults to the entry type name. */
     public string $label = '';
 
+    /** Optional standfirst under the title. Wrapped and clamped like the title. */
+    public ?string $description = null;
+
     /** Optional date line, top-right. */
     public ?string $date = null;
 

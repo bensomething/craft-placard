@@ -19,99 +19,221 @@
     }]) %}
 {% endfor %}
 
+{# Renders a group of related settings as a single row of columns, borrowing
+   Craft's `.editable` table styling rather than editableTableField — the latter
+   would nest the values under one array name, and these stay flat to match
+   config/placard.php. Instructions move into `.info` spans, which
+   Craft.initUiElements upgrades into the usual info icons.
+
+   Each col takes: `id` (the setting name, also the input name), `heading`,
+   `info`, `type` (number | singleline | select | color | lightswitch), plus
+   `options` for selects, `placeholder` for text, `step`/`min`/`max` for numbers,
+   `value` to override what's read off the settings model, and `nowrap: true` to
+   hold a two-word heading on one line. Sizing is one of three: `width` in pixels
+   for a fixed column, `fill: true` to soak up the leftover space, or neither to
+   size to the column's own content. A col with no `id` renders as a blank spacer.
+
+   Macros can't see the template's imports or context, hence the re-import and
+   the explicit `settings` argument. #}
+{% macro settingsTable(group, label, cols, settings) %}
+    {% import "_includes/forms" as forms %}
+
+    {% set table %}
+        <table class="editable fullwidth placard-table">
+            <thead>
+                <tr>
+                    {% for col in cols %}
+                        {% set type = col.type ?? 'singleline' %}
+                        {# width + min-width is Craft's own column-sizing idiom (cf. the
+                           editableTableField cols further down): a floor rather than a
+                           cap, so a heading or value needing more room still gets it.
+                           Built through attr() rather than written inline so editors
+                           don't try to parse the interpolated style as CSS. #}
+                        {% set th = {
+                            scope: 'col',
+                            id: (col.id ?? false) ? "#{group}-heading-#{col.id}" : null,
+                            'aria-hidden': (col.id ?? false) ? null : 'true',
+                            class: [
+                                type in ['select', 'lightswitch'] ? "#{type}-cell" : "#{type}-cell textual",
+                                (col.info ?? false) ? 'has-info' : null,
+                                (col.fill ?? false) ? 'placard-table__fill' : null,
+                                (col.nowrap ?? false) ? 'placard-table__nowrap' : null,
+                            ]|filter,
+                            width: col.width ?? null,
+                            style: (col.width ?? false) ? { 'min-width': "#{col.width}px" } : null,
+                        } %}
+                        <th{{ attr(th) }}>
+                            {{- col.heading ?? '&nbsp;'|raw -}}
+                            {%- if col.info ?? false %}<span class="info">{{ col.info }}</span>{% endif -%}
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    {% for col in cols %}
+                        {% set type = col.type ?? 'singleline' %}
+                        {% set fill = (col.fill ?? false) ? ' placard-table__fill' : '' %}
+                        {% set value = col.value ?? ((col.id ?? false) ? attribute(settings, col.id)) %}
+                        {% set labelledBy = "#{group}-heading-#{col.id ?? ''}" %}
+                        {% if not (col.id ?? false) %}
+                            <td class="{{ fill|trim }}" aria-hidden="true"></td>
+                        {% elseif type == 'select' %}
+                            <td class="select-cell{{ fill }}">
+                                {{ forms.select({
+                                    class: 'small',
+                                    id: col.id,
+                                    name: col.id,
+                                    value: value,
+                                    options: col.options,
+                                    labelledBy: labelledBy,
+                                }) }}
+                            </td>
+                        {% elseif type == 'lightswitch' %}
+                            <td class="lightswitch-cell{{ fill }}">
+                                {{ forms.lightswitch({
+                                    id: col.id,
+                                    name: col.id,
+                                    on: value,
+                                    small: true,
+                                    labelledBy: labelledBy,
+                                }) }}
+                            </td>
+                        {% elseif type == 'color' %}
+                            {# `code` matches what editableTable puts on its own colour
+                               cells, so the hex reads in the monospace face. #}
+                            <td class="color-cell textual code{{ fill }}">
+                                {{ forms.color({
+                                    id: col.id,
+                                    name: col.id,
+                                    value: value,
+                                    small: true,
+                                    labelledBy: labelledBy,
+                                }) }}
+                            </td>
+                        {% else %}
+                            <td class="{{ type }}-cell textual{{ fill }}">
+                                {{ forms.text({
+                                    id: col.id,
+                                    name: col.id,
+                                    value: value,
+                                    type: type == 'number' ? 'number' : 'text',
+                                    placeholder: col.placeholder ?? null,
+                                    step: col.step ?? null,
+                                    min: col.min ?? null,
+                                    max: col.max ?? null,
+                                    labelledBy: labelledBy,
+                                }) }}
+                            </td>
+                        {% endif %}
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    {% endset %}
+
+    {# fieldset: true makes the group label a <legend>, which is what a label
+       covering several inputs needs — a plain <label> can only point at one. #}
+    {{ forms.field({
+        id: "#{group}-table",
+        label: label,
+        fieldset: true,
+        inputContainerAttributes: { class: 'placard-table-scroll' },
+    }, table) }}
+{% endmacro %}
+
 <div class="placard-settings" data-sample-url="{{ actionUrl('placard/image/sample') }}">
 <div class="placard-settings__main">
 
-<h2>Canvas</h2>
+{# Pixel dimensions step in tens — a one-pixel nudge on a 1200px card is busywork.
+   min stops the spinner walking into values the generator can't draw; the model
+   validates the type, not the range, so these are a UI guard rather than the rule. #}
+{{ _self.settingsTable('canvas', 'Canvas', [
+    { id: 'width', heading: 'Width', info: 'Card width in pixels.', type: 'number', width: 100, step: 10, min: 1 },
+    { id: 'height', heading: 'Height', info: 'Card height in pixels.', type: 'number', width: 100, step: 10, min: 1 },
+    { id: 'padding', heading: 'Padding', info: 'Inner padding in pixels.', type: 'number', width: 100, step: 10, min: 0 },
+    { fill: true },
+], settings) }}
 
-{{ forms.textField({
-    label: 'Width',
-    instructions: 'Card width in pixels.',
-    id: 'width',
-    name: 'width',
-    value: settings.width,
-    size: 6,
-    type: 'number',
-}) }}
+{# No width on Position: the select sizes itself to its longest option. #}
+{{ _self.settingsTable('logo', 'Logo', [
+    { id: 'logoSize', heading: 'Size', info: 'Logo height in pixels.', type: 'number', width: 100, step: 4, min: 1 },
+    { id: 'logoPosition', heading: 'Position', type: 'select', options: positionOptions },
+    {
+        id: 'logoPath',
+        heading: 'Path',
+        info: 'Absolute path or Craft alias to a PNG logo. Leave blank for no logo.',
+        placeholder: '@webroot/img/logo.png',
+        fill: true,
+    },
+], settings) }}
 
-{{ forms.textField({
-    label: 'Height',
-    instructions: 'Card height in pixels.',
-    id: 'height',
-    name: 'height',
-    value: settings.height,
-    size: 6,
-    type: 'number',
-}) }}
-
-{{ forms.textField({
-    label: 'Padding',
-    instructions: 'Inner padding in pixels.',
-    id: 'padding',
-    name: 'padding',
-    value: settings.padding,
-    size: 6,
-    type: 'number',
-}) }}
-
-{{ forms.textField({
-    label: 'Max lines',
-    instructions: 'Titles longer than this are clamped with an ellipsis.',
-    id: 'maxLines',
-    name: 'maxLines',
-    value: settings.maxLines,
-    size: 6,
-    type: 'number',
-}) }}
-
-<hr>
-<h2>Logo</h2>
-
-{{ forms.textField({
-    label: 'Size',
-    instructions: 'Logo height in pixels.',
-    id: 'logoSize',
-    name: 'logoSize',
-    value: settings.logoSize,
-    size: 6,
-    type: 'number',
-}) }}
-
-{{ forms.selectField({
-    label: 'Position',
-    id: 'logoPosition',
-    name: 'logoPosition',
-    value: settings.logoPosition,
-    options: positionOptions,
-}) }}
-
-{{ forms.textField({
-    label: 'Logo path',
-    instructions: 'Absolute path or Craft alias to a PNG logo. Leave blank for no logo.',
-    id: 'logoPath',
-    name: 'logoPath',
-    value: settings.logoPath,
-    placeholder: '@webroot/img/logo.png',
-}) }}
-
-<hr>
-<h2>Text Elements</h2>
-
+{# Driven by ELEMENTS rather than the stored rows, so the table always shows one row
+   per element even if the saved value predates an element being added. #}
+{% set elementKeys = constant('bensomething\\placard\\models\\Settings::ELEMENTS')|keys %}
 {% set elementLabels = constant('bensomething\\placard\\models\\Settings::ELEMENTS')|values %}
+{% set wrappingElements = constant('bensomething\\placard\\models\\Settings::WRAPPING_ELEMENTS') %}
+{% set elementDefaults = constant('bensomething\\placard\\models\\Settings::DEFAULT_CARD_ELEMENTS') %}
+{% set storedElements = settings.cardElements %}
 {% set elementRows = [] %}
-{% for i, row in settings.cardElements %}
+{% for i, elementLabel in elementLabels %}
+    {# Merged over the defaults so a stored row saved before a key existed still
+       fills its cells, rather than rendering blank until the next save. #}
+    {% set row = (elementDefaults[i] ?? {})|merge(storedElements[i] ?? {}) %}
+    {% set wraps = elementKeys[i] in wrappingElements %}
+    {# Craft renders editable-table `number` cells as textareas, which can't show
+       steppers. An `html` column takes raw markup instead, so Size gets a real
+       number input — named to match the `cardElements[<row>][size]` shape the rest
+       of the table submits, keyed on position because that's what
+       Settings::normalizeCardElements() reads back. The labelledBy id is Craft's
+       own `<table id>-heading-<column position>`, so it tracks Size being the
+       second column. #}
+    {% set sizeInput = forms.text({
+        id: "cardElements-#{i}-size",
+        name: "cardElements[#{i}][size]",
+        value: row.size ?? '',
+        type: 'number',
+        step: 2,
+        min: 1,
+        labelledBy: 'cardElements-heading-2',
+    }) %}
+    {# Only the wrapping elements honour maxLines; the rest are drawn as one line, so
+       their cell is disabled rather than offering a setting that does nothing. A
+       disabled input submits nothing, which the normalizer reads as "keep the
+       default". #}
+    {% set maxLinesInput = forms.text({
+        id: "cardElements-#{i}-maxLines",
+        name: "cardElements[#{i}][maxLines]",
+        value: row.maxLines ?? '',
+        type: 'number',
+        step: 1,
+        min: 1,
+        disabled: not wraps,
+        labelledBy: 'cardElements-heading-3',
+    }) %}
     {% set elementRows = elementRows|merge([{
-        item: elementLabels[i] ?? '',
-        size: row.size,
-        position: row.position,
-        color: row.color ? '#' ~ row.color|trim('#') : '',
-        uppercase: row.uppercase,
-        hide: row.hide,
+        item: elementLabel,
+        size: sizeInput,
+        maxLines: { value: maxLinesInput, class: wraps ? 'textual' : 'textual disabled' },
+        position: row.position ?? 'top-left',
+        color: (row.color ?? '') ? '#' ~ row.color|trim('#') : '',
+        display: row.display ?? 'normal',
     }]) %}
 {% endfor %}
 
+{% set displayOptions = [] %}
+{% for value, label in constant('bensomething\\placard\\models\\Settings::DISPLAYS') %}
+    {% set displayOptions = displayOptions|merge([{ label: label, value: value }]) %}
+{% endfor %}
+
+{# Size and Max lines are `html` columns carrying the inputs built above; `textual`
+   zeroes the cell padding, which Craft only does automatically for its own textual
+   types, and the nowrap class stands in for an option its table doesn't have.
+   Display takes no width so it sizes to its own dropdown, and Position is the fill
+   column that soaks up whatever is left. #}
 {{ forms.editableTableField({
-    instructions: 'Size is the font size; position anchors the element on the card.',
+    label: 'Text',
+    inputContainerAttributes: { class: 'placard-table-scroll' },
     id: 'cardElements',
     name: 'cardElements',
     staticRows: true,
@@ -119,81 +241,115 @@
     allowDelete: false,
     allowReorder: false,
     cols: {
-        item: { heading: 'Item', type: 'heading', width: 50 },
-        size: { heading: 'Size', type: 'number', width: 50 },
+        item: { heading: 'Item', type: 'heading', width: 100 },
+        size: { heading: 'Size', type: 'html', class: 'textual', width: 100 },
+        maxLines: {
+            heading: 'Max lines',
+            type: 'html',
+            class: 'textual placard-table__nowrap',
+            width: 100,
+            info: 'Only the elements that wrap — Title and Description — are clamped; the rest are drawn as a single line.',
+        },
         color: { heading: 'Colour', type: 'color', width: 120 },
-        uppercase: { heading: 'Uppercase', type: 'checkbox', width: 80 },
-        hide: { heading: 'Hide', type: 'checkbox', width: 60 },
-        position: { heading: 'Position', type: 'select', options: positionOptions },
+        display: { heading: 'Display', type: 'select', options: displayOptions },
+        position: {
+            heading: 'Position',
+            type: 'select',
+            options: positionOptions,
+            class: 'placard-table__fill',
+        },
     },
     rows: elementRows,
 }) }}
 
-<hr>
-<h2>Background</h2>
-
-{# colorField strips the leading # from its text input (submitting bare hex), but
-   uses the value verbatim for the swatch — so pass a #-prefixed value or the swatch
-   renders no colour. The generator tolerates the bare hex that comes back on save. #}
-<div class="placard-palette">
-    {{ forms.colorField({ label: 'Colour', id: 'backgroundColor', name: 'backgroundColor', value: '#' ~ settings.backgroundColor|trim('#') }) }}
-</div>
-
-{{ forms.lightswitchField({
-    label: 'Use share image as background',
-    instructions: 'Render the entry’s first share image faintly behind the card.',
-    id: 'useImageAsBackground',
-    name: 'useImageAsBackground',
-    on: settings.useImageAsBackground,
-}) }}
-
-{{ forms.textField({
-    label: 'Background opacity',
-    instructions: '0–1.',
-    id: 'backgroundOpacity',
-    name: 'backgroundOpacity',
-    value: settings.backgroundOpacity,
-    size: 6,
-}) }}
+{# The colour input strips the leading # (submitting bare hex) but uses the value
+   verbatim for the swatch, so it needs a #-prefixed value or the swatch renders no
+   colour — hence the `value` override. The generator tolerates the bare hex that
+   comes back on save. #}
+{{ _self.settingsTable('background', 'Background', [
+    {
+        id: 'backgroundColor',
+        heading: 'Colour',
+        type: 'color',
+        width: 120,
+        value: '#' ~ settings.backgroundColor|trim('#'),
+    },
+    {
+        id: 'useImageAsBackground',
+        heading: 'Share image',
+        info: 'Render the entry’s first share image faintly behind the card.',
+        type: 'lightswitch',
+        width: 100,
+        nowrap: true,
+    },
+    { id: 'backgroundOpacity', heading: 'Opacity', info: '0–1.', width: 100 },
+    { fill: true },
+], settings) }}
 
 <hr>
-<h2>Fonts</h2>
 
-{{ forms.textField({
-    label: 'Display font path',
-    instructions: 'Absolute path or Craft alias to the title font. Leave blank to use the bundled Inter Bold. No commercial font ships with the plugin — point this at your own licensed display font.',
-    id: 'displayFontPath',
-    name: 'displayFontPath',
-    value: settings.displayFontPath,
-    placeholder: '@root/src/fonts/MyDisplay.otf',
+{# One font per text element, so this reads as a row per element in the same order
+   as the Text table above. The settings stay flat (`labelFontPath` and friends) —
+   as with Text > Size, an `html` column carries an input named for the setting
+   itself, so nothing about the stored shape or config/placard.php changes. #}
+{% set fontPaths = {
+    label: 'labelFontPath',
+    title: 'displayFontPath',
+    description: 'descriptionFontPath',
+    date: 'dateFontPath',
+} %}
+{% set fontFallbacks = {
+    label: 'Inter Medium',
+    title: 'Inter Bold',
+    description: 'Inter Regular',
+    date: 'Inter Regular',
+} %}
+{% set fontRows = [] %}
+{% for key, elementLabel in constant('bensomething\\placard\\models\\Settings::ELEMENTS') %}
+    {% set fontId = fontPaths[key] %}
+    {% set fontRows = fontRows|merge([{
+        item: elementLabel,
+        path: forms.text({
+            id: fontId,
+            name: fontId,
+            value: attribute(settings, fontId),
+            placeholder: "#{fontFallbacks[key]} (bundled)",
+            labelledBy: 'fontPaths-heading-2',
+        }),
+    }]) %}
+{% endfor %}
+
+{{ forms.editableTableField({
+    label: 'Fonts',
+    inputContainerAttributes: { class: 'placard-table-scroll' },
+    id: 'fontPaths',
+    name: 'fontPaths',
+    staticRows: true,
+    allowAdd: false,
+    allowDelete: false,
+    allowReorder: false,
+    cols: {
+        item: { heading: 'Item', type: 'heading', width: 100 },
+        path: {
+            heading: 'Path',
+            type: 'html',
+            class: 'textual',
+            info: 'Absolute path or Craft alias to a font file, e.g. `@root/src/fonts/MyDisplay.otf`. Leave blank for the bundled Inter weight shown. No commercial font ships with the plugin — point Title at your own licensed display font.',
+        },
+    },
+    rows: fontRows,
 }) }}
 
-{{ forms.textField({
-    label: 'Label font path',
-    instructions: 'Defaults to bundled Inter Medium.',
-    id: 'labelFontPath',
-    name: 'labelFontPath',
-    value: settings.labelFontPath,
-}) }}
-
-{{ forms.textField({
-    label: 'Date font path',
-    instructions: 'Defaults to bundled Inter Regular.',
-    id: 'dateFontPath',
-    name: 'dateFontPath',
-    value: settings.dateFontPath,
-}) }}
+{{ _self.settingsTable('fallback', 'Fallback', [
+    {
+        id: 'defaultImagePath',
+        heading: 'Default image',
+        info: 'URL returned by craft.placard.default().',
+        fill: true,
+    },
+], settings) }}
 
 <hr>
-<h2>Fallback</h2>
-
-{{ forms.textField({
-    label: 'Default image path',
-    instructions: 'URL returned by craft.placard.default().',
-    id: 'defaultImagePath',
-    name: 'defaultImagePath',
-    value: settings.defaultImagePath,
-}) }}
 
 <p class="light">Image field handles and other advanced options are best set in <code>config/placard.php</code>.</p>
 
@@ -202,7 +358,7 @@
 <div class="placard-settings__aside">
     <div class="placard-settings__preview">
         <h2>Preview</h2>
-        <p class="light">Updates as you edit; save to keep the changes.</p>
+        <p class="light">Updates as you edit, save to keep the changes.</p>
         {{ include('placard/_preview/cards', { imageUrl: actionUrl('placard/image/sample') }, with_context = false) }}
     </div>
 </div>
@@ -246,9 +402,30 @@
         .placard-settings__aside { flex-basis: 620px; }
     }
 
-    /* Palette swatches sit in a single row rather than stacking. */
-    .placard-palette { display: flex; flex-wrap: wrap; gap: 24px; }
-    .placard-palette > .field { margin-top: 0; }
+    /* The fill column takes 100% and soaks up the leftover space, holding the other
+       columns to their natural or fixed width on the left. It's either a real
+       column (logo path) or a blank spacer. */
+    /* The tables have column floors that add up to more than a narrow pane, and the
+       preview aside takes a fixed 440px of it. Rather than let them squash or spill
+       out of the pane, let each one scroll on its own. */
+    .placard-table-scroll { overflow-x: auto; }
+    /* Craft rounds the table's corners with a border, which a scroll container
+       clips flush — the padding keeps the bottom edge and focus rings visible. */
+    .placard-table-scroll { padding-bottom: 2px; }
+    /* Craft positions the heading info icon absolutely. Its containing block was an
+       ancestor outside the scroller, so the icons hung in place while the table
+       scrolled under them. Making each heading cell the containing block pins its
+       icon to it — the icon has no offsets, so it doesn't otherwise move. */
+    .placard-table-scroll th { position: relative; }
+
+    .placard-table__fill { width: 100%; }
+    /* Native spinners only appear on hover/focus, and they sit over the cell's right
+       padding rather than adding width — but nudge the text left of them anyway so a
+       four-digit value can't run underneath. */
+    .placard-table input[type=number] { padding-right: 4px; }
+    /* Opted in per column, for headings that read badly broken across two lines.
+       The width floor still wins if the heading needs more than it. */
+    .placard-table__nowrap { white-space: nowrap; }
 
     /* Stack on narrow CP panes — the flex row would squeeze both columns otherwise. */
     @media (max-width: 900px) {
@@ -276,7 +453,9 @@
     function serialize() {
         var params = new URLSearchParams();
         main.querySelectorAll('[name]').forEach(function (el) {
-            if (!el.name || el.name === 'cardElements') return; // skip the array-reset input
+            // Skip the editable tables' array-reset inputs; their real values come
+            // from the per-cell inputs alongside them.
+            if (!el.name || el.name === 'cardElements' || el.name === 'fontPaths') return;
             if ((el.type === 'checkbox' || el.type === 'radio') && !el.checked) return;
             params.set(el.name, el.value);
         });

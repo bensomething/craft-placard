@@ -29,8 +29,16 @@ class Settings extends Model
      */
     public const ELEMENTS = [
         'label' => 'Label',
-        'date' => 'Date',
         'title' => 'Title',
+        'description' => 'Description',
+        'date' => 'Date',
+    ];
+
+    /** Display treatment offered per element. `hidden` drops the element entirely. */
+    public const DISPLAYS = [
+        'normal' => 'Normal',
+        'uppercase' => 'Uppercase',
+        'hidden' => 'Hidden',
     ];
 
     /** Position options offered per element (9 anchors). */
@@ -46,25 +54,39 @@ class Settings extends Model
     public int $height = 630;
     public int $padding = 80;
 
-    /** Titles wrap to at most this many lines (then ellipsised), at this line height. */
-    public int $maxLines = 3;
+    /** Line height for the wrapping elements. Max lines is set per element. */
     public float $lineHeight = 1.02;
 
     // -- Elements -------------------------------------------------------------
 
     /**
-     * Per-element size / position / colour / uppercase, one row per entry in
-     * {@see ELEMENTS}, in that order. `size` is the font size (px), or the logo
-     * height for the logo row; `position` is one of {@see POSITIONS}; `color` is a
-     * hex (ignored for the logo); `uppercase` transforms text (ignored for the logo).
-     *
-     * @var array<int, array{size:int, position:string, color:string, uppercase:bool}>
+     * Elements that wrap over several lines, and so honour their `maxLines`. The
+     * rest are drawn as a single line, and ignore it.
      */
-    public array $cardElements = [
-        ['size' => 28, 'position' => 'top-left', 'color' => '#a3a3a3', 'uppercase' => false, 'hide' => false],
-        ['size' => 28, 'position' => 'top-right', 'color' => '#a3a3a3', 'uppercase' => false, 'hide' => false],
-        ['size' => 116, 'position' => 'bottom-left', 'color' => '#ffffff', 'uppercase' => true, 'hide' => false],
+    public const WRAPPING_ELEMENTS = ['title', 'description'];
+
+    /**
+     * Defaults for {@see $cardElements}, one row per entry in {@see ELEMENTS}, in
+     * that order. Exposed as a constant so the settings screen can fall back to it
+     * per cell when a stored row predates a key being added.
+     */
+    public const DEFAULT_CARD_ELEMENTS = [
+        ['size' => 28, 'position' => 'top-left', 'color' => '#a3a3a3', 'display' => 'normal', 'maxLines' => 1],
+        ['size' => 116, 'position' => 'bottom-left', 'color' => '#ffffff', 'display' => 'uppercase', 'maxLines' => 3],
+        ['size' => 32, 'position' => 'middle-left', 'color' => '#a3a3a3', 'display' => 'hidden', 'maxLines' => 2],
+        ['size' => 28, 'position' => 'top-right', 'color' => '#a3a3a3', 'display' => 'normal', 'maxLines' => 1],
     ];
+
+    /**
+     * Per-element size / position / colour / display, one row per entry in
+     * {@see ELEMENTS}, in that order. `size` is the font size (px); `position` is
+     * one of {@see POSITIONS}; `color` is a hex; `display` is one of
+     * {@see DISPLAYS} and covers both text treatment and hiding the element;
+     * `maxLines` clamps the wrapping elements (see {@see WRAPPING_ELEMENTS}).
+     *
+     * @var array<int, array{size:int, position:string, color:string, display:string, maxLines:int}>
+     */
+    public array $cardElements = self::DEFAULT_CARD_ELEMENTS;
 
     // -- Logo -----------------------------------------------------------------
 
@@ -92,6 +114,9 @@ class Settings extends Model
 
     /** Font for the label kicker (defaults to bundled Inter Medium). */
     public string $labelFontPath = '';
+
+    /** Font for the description (defaults to bundled Inter Regular). */
+    public string $descriptionFontPath = '';
 
     /** Font for the date (defaults to bundled Inter Regular). */
     public string $dateFontPath = '';
@@ -123,7 +148,7 @@ class Settings extends Model
     protected function defineRules(): array
     {
         return [
-            [['width', 'height', 'padding', 'maxLines', 'logoSize'], 'integer'],
+            [['width', 'height', 'padding', 'logoSize'], 'integer'],
             [['lineHeight', 'backgroundOpacity'], 'number'],
             ['backgroundColor', 'string'],
             ['logoPosition', 'in', 'range' => self::POSITIONS],
@@ -145,29 +170,26 @@ class Settings extends Model
         // insertion (DOM submit) order.
         $numericKeys = $raw !== [] && array_keys($raw) === array_filter(array_keys($raw), 'is_numeric');
         $rows = $numericKeys ? $raw : array_values($raw);
-        $defaults = (new self())->cardElements;
+        $defaults = self::DEFAULT_CARD_ELEMENTS;
         $normalized = [];
 
-        // An unchecked checkbox isn't submitted, so on a present row a missing key
-        // means false — not "fall back to the default".
-        $checkbox = fn(bool $hasRow, array $row, string $key, bool $default): bool => $hasRow
-            ? !in_array($row[$key] ?? false, [false, '', '0', 0, null], true)
-            : $default;
-
         foreach (array_values(self::ELEMENTS) as $i => $_label) {
-            $default = $defaults[$i] ?? ['size' => 0, 'position' => 'top-left', 'color' => '', 'uppercase' => false, 'hide' => false];
-            $hasRow = array_key_exists($i, $rows);
-            $row = $hasRow ? $rows[$i] : [];
+            $default = $defaults[$i] ?? ['size' => 0, 'position' => 'top-left', 'color' => '', 'display' => 'normal', 'maxLines' => 1];
+            $row = $rows[$i] ?? [];
 
             $position = (string)($row['position'] ?? $default['position']);
             $size = (int)($row['size'] ?? $default['size']);
+            $display = (string)($row['display'] ?? $default['display']);
+            // The cell is disabled for non-wrapping elements, so it submits nothing —
+            // keep the default rather than reading a missing key as 0.
+            $maxLines = (int)($row['maxLines'] ?? $default['maxLines']);
 
             $normalized[] = [
                 'size' => $size > 0 ? $size : $default['size'],
                 'position' => in_array($position, self::POSITIONS, true) ? $position : $default['position'],
                 'color' => (string)($row['color'] ?? $default['color']),
-                'uppercase' => $checkbox($hasRow, $row, 'uppercase', (bool)$default['uppercase']),
-                'hide' => $checkbox($hasRow, $row, 'hide', (bool)($default['hide'] ?? false)),
+                'display' => isset(self::DISPLAYS[$display]) ? $display : $default['display'],
+                'maxLines' => $maxLines > 0 ? $maxLines : $default['maxLines'],
             ];
         }
 

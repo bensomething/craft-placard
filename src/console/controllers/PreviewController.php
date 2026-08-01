@@ -22,12 +22,13 @@ class PreviewController extends Controller
 {
     public ?string $title = 'The quick brown fox jumps over the lazy dog';
     public ?string $label = 'Preview';
+    public ?string $description = null;
     public ?string $date = null;
     public ?string $image = null;
 
     public function options($actionID): array
     {
-        return ['title', 'label', 'date', 'image'];
+        return ['title', 'label', 'description', 'date', 'image'];
     }
 
     public function actionIndex(?int $entryId = null): int
@@ -53,7 +54,7 @@ class PreviewController extends Controller
                 }
             }
 
-            $png = $generator->generate($card->title, $card->label, $blob, $card->date);
+            $png = $generator->generate($card->title, $card->label, $blob, $card->date, $card->description);
             $file = "$dir/entry-$entryId.png";
             file_put_contents($file, $png);
             $this->stdout("Wrote $file\n", Console::FG_GREEN);
@@ -62,7 +63,7 @@ class PreviewController extends Controller
         }
 
         $blob = $this->image && is_file($this->image) ? file_get_contents($this->image) : null;
-        $png = $generator->generate((string)$this->title, $this->label, $blob, $this->date);
+        $png = $generator->generate((string)$this->title, $this->label, $blob, $this->date, $this->description);
         $file = "$dir/sample.png";
         file_put_contents($file, $png);
         $this->stdout("Wrote $file\n", Console::FG_GREEN);

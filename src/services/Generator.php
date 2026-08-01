@@ -69,8 +69,13 @@ class Generator extends Component
     /**
      * Returns the rendered card as PNG binary.
      */
-    public function generate(string $title, ?string $label = null, ?string $backgroundBlob = null, ?string $date = null): string
-    {
+    public function generate(
+        string $title,
+        ?string $label = null,
+        ?string $backgroundBlob = null,
+        ?string $date = null,
+        ?string $description = null,
+    ): string {
         $s = $this->settings;
         $w = $s->width;
         $h = $s->height;
@@ -80,6 +85,7 @@ class Generator extends Component
         $displayFont = $this->displayFont();
         $labelFont = $this->font($s->labelFontPath, 'Inter-Medium.ttf');
         $dateFont = $this->font($s->dateFontPath, 'Inter-Regular.ttf');
+        $descriptionFont = $this->font($s->descriptionFontPath, 'Inter-Regular.ttf');
 
         $img = new Imagick();
         $img->newImage($w, $h, $this->color($s->backgroundColor));
@@ -116,28 +122,23 @@ class Generator extends Component
         $titleStyle = $this->elementStyle('title');
         $title = $this->prepText($title, $titleStyle['uppercase']);
         if ($title !== '' && !$titleStyle['hide']) {
-            [$lines, $fontSize, $lineHeight] = $this->fitTitle($img, $displayFont, $title, $maxWidth, $titleStyle['size']);
-            $totalHeight = count($lines) * $lineHeight;
-            [$vAlign, $hAlign] = $this->anchor($titleStyle['position']);
+            [$lines, $fontSize, $lineHeight] = $this->fitTitle($img, $displayFont, $title, $maxWidth, $titleStyle['size'], $titleStyle['maxLines']);
+            $this->drawLines($img, $displayFont, $lines, $titleStyle, $fontSize, $lineHeight);
+        }
 
-            $draw = new ImagickDraw();
-            $draw->setFont($displayFont);
-            $draw->setFontSize($fontSize);
-            $draw->setFillColor($this->color($titleStyle['color'] ?: '#ffffff'));
-
-            $firstBaseline = match ($vAlign) {
-                'top' => $pad + $fontSize,
-                'middle' => (int)round(($h - $totalHeight) / 2) + $fontSize,
-                default => $h - $pad - $totalHeight + $fontSize,
-            };
-            [$titleX, $align] = $this->horizontal($hAlign);
-            $draw->setTextAlignment($align);
-
-            $y = $firstBaseline;
-            foreach ($lines as $line) {
-                $img->annotateImage($draw, $titleX, $y, 0, $line);
-                $y += $lineHeight;
-            }
+        // Description: body font at its configured size, wrapped and clamped the
+        // same way, but without the title's shrink-to-fit.
+        $descriptionStyle = $this->elementStyle('description');
+        $description = $this->prepText($description, $descriptionStyle['uppercase']);
+        if ($description !== '' && !$descriptionStyle['hide']) {
+            $size = $descriptionStyle['size'];
+            $measure = $this->measureDraw($descriptionFont, $size);
+            $lines = $this->clampLines($img, $measure, $description, $maxWidth, $descriptionStyle['maxLines']);
+            $lines = array_map(
+                fn(string $line): string => $this->truncateToWidth($img, $measure, $line, $maxWidth),
+                $lines,
+            );
+            $this->drawLines($img, $descriptionFont, $lines, $descriptionStyle, $size, $size * $s->lineHeight);
         }
 
         $out = $img->getImageBlob();
@@ -178,9 +179,8 @@ class Generator extends Component
      *
      * Returns [lines, fontSize, lineHeight].
      */
-    private function fitTitle(Imagick $img, string $font, string $text, float $maxWidth, int $size): array
+    private function fitTitle(Imagick $img, string $font, string $text, float $maxWidth, int $size, int $maxLines): array
     {
-        $maxLines = $this->settings->maxLines;
         $draw = $this->measureDraw($font, $size);
 
         $lines = $this->greedyWrap($img, $draw, $text, $maxWidth);
@@ -381,20 +381,24 @@ class Generator extends Component
     /**
      * The resolved style row for an element, keyed by its position in
      * {@see Settings::ELEMENTS}. Falls back to sane values for missing cells.
+     * `display` is expanded into the flags the drawing code actually reads.
      *
-     * @return array{size:int, position:string, color:string, uppercase:bool}
+     * @return array{size:int, position:string, color:string, uppercase:bool, hide:bool, maxLines:int}
      */
     private function elementStyle(string $key): array
     {
         $index = array_search($key, array_keys(Settings::ELEMENTS), true);
         $row = array_values($this->settings->cardElements)[$index] ?? [];
+        $display = (string)($row['display'] ?? 'normal');
+        $maxLines = (int)($row['maxLines'] ?? 0);
 
         return [
             'size' => (int)($row['size'] ?? 0),
             'position' => (string)($row['position'] ?? 'top-left'),
             'color' => (string)($row['color'] ?? ''),
-            'uppercase' => !empty($row['uppercase']) && !in_array($row['uppercase'], ['0', 0, false], true),
-            'hide' => !empty($row['hide']) && !in_array($row['hide'], ['0', 0, false], true),
+            'uppercase' => $display === 'uppercase',
+            'hide' => $display === 'hidden',
+            'maxLines' => $maxLines > 0 ? $maxLines : 1,
         ];
     }
 
@@ -476,6 +480,42 @@ class Generator extends Component
         $draw->setFillColor($this->color($style['color'] ?: '#ffffff'));
         $draw->setTextAlignment($align);
         $img->annotateImage($draw, $x, $baseline, 0, $text);
+    }
+
+    /**
+     * Draws a block of already-wrapped lines at the element's anchor. The block is
+     * anchored as a whole, so a bottom-anchored one grows upwards as it gains lines.
+     *
+     * @param string[] $lines
+     */
+    private function drawLines(Imagick $img, string $font, array $lines, array $style, float $size, float $lineHeight): void
+    {
+        if ($lines === []) {
+            return;
+        }
+
+        $h = $this->settings->height;
+        $pad = $this->settings->padding;
+        $totalHeight = count($lines) * $lineHeight;
+        [$vAlign, $hAlign] = $this->anchor($style['position']);
+        [$x, $align] = $this->horizontal($hAlign);
+
+        $draw = new ImagickDraw();
+        $draw->setFont($font);
+        $draw->setFontSize($size);
+        $draw->setFillColor($this->color($style['color'] ?: '#ffffff'));
+        $draw->setTextAlignment($align);
+
+        $y = match ($vAlign) {
+            'top' => $pad + $size,
+            'middle' => (int)round(($h - $totalHeight) / 2) + $size,
+            default => $h - $pad - $totalHeight + $size,
+        };
+
+        foreach ($lines as $line) {
+            $img->annotateImage($draw, $x, $y, 0, $line);
+            $y += $lineHeight;
+        }
     }
 
     /**
