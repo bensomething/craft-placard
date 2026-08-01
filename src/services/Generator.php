@@ -1,10 +1,10 @@
 <?php
 
-namespace bensomething\herald\services;
+namespace bensomething\placard\services;
 
-use bensomething\herald\events\DefineCardEvent;
-use bensomething\herald\models\Settings;
-use bensomething\herald\Plugin;
+use bensomething\placard\events\DefineCardEvent;
+use bensomething\placard\models\Settings;
+use bensomething\placard\Plugin;
 use Craft;
 use craft\elements\Asset;
 use craft\elements\db\AssetQuery;

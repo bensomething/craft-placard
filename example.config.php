@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Example config — copy to your project's `config/herald.php`.
+ * Example config — copy to your project's `config/placard.php`.
  *
  * Values here override the plugin's CP settings and are the recommended place to
  * configure the plugin per project (they're version-controlled and env-aware).
@@ -33,6 +33,6 @@ return [
     'imageFieldHandles' => ['seoImage', 'hero', 'featuredImage'],
     'useImageAsBackground' => false,
 
-    // craft.herald.default()
+    // craft.placard.default()
     'defaultImagePath' => 'img/og-default.png',
 ];

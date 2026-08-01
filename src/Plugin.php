@@ -1,11 +1,11 @@
 <?php
 
-namespace bensomething\herald;
+namespace bensomething\placard;
 
-use bensomething\herald\fieldlayoutelements\SocialPreview;
-use bensomething\herald\models\Settings;
-use bensomething\herald\services\Generator;
-use bensomething\herald\web\twig\HeraldVariable;
+use bensomething\placard\fieldlayoutelements\SocialPreview;
+use bensomething\placard\models\Settings;
+use bensomething\placard\services\Generator;
+use bensomething\placard\web\twig\PlacardVariable;
 use Craft;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
@@ -17,15 +17,15 @@ use craft\web\UrlManager;
 use yii\base\Event;
 
 /**
- * Herald plugin.
+ * Placard plugin.
  *
  * Generates social / OG cards with Imagick for entries that have no share image,
- * and exposes a `craft.herald` variable plus an `og/<entryId>.png` route that
+ * and exposes a `craft.placard` variable plus an `og/<entryId>.png` route that
  * streams the generated PNG (cached under storage/runtime).
  *
  * Everything project-specific — dimensions, fonts, logo, palette, and how a card's
  * title / label / date / background are derived from an entry — is configurable via
- * plugin settings, a `config/herald.php` file, or the {@see Generator::EVENT_DEFINE_CARD}
+ * plugin settings, a `config/placard.php` file, or the {@see Generator::EVENT_DEFINE_CARD}
  * event. Nothing here is tied to a particular site.
  *
  * @property-read Generator $generator
@@ -50,18 +50,18 @@ class Plugin extends BasePlugin
             UrlManager::class,
             UrlManager::EVENT_REGISTER_SITE_URL_RULES,
             static function (RegisterUrlRulesEvent $event): void {
-                $event->rules['og/<entryId:\d+>.png'] = 'herald/image/generate';
+                $event->rules['og/<entryId:\d+>.png'] = 'placard/image/generate';
             }
         );
 
-        // craft.herald.* helpers for templates.
+        // craft.placard.* helpers for templates.
         Event::on(
             CraftVariable::class,
             CraftVariable::EVENT_INIT,
             static function (Event $event): void {
                 /** @var CraftVariable $variable */
                 $variable = $event->sender;
-                $variable->set('herald', HeraldVariable::class);
+                $variable->set('placard', PlacardVariable::class);
             }
         );
 
@@ -88,7 +88,7 @@ class Plugin extends BasePlugin
 
     protected function settingsHtml(): ?string
     {
-        return Craft::$app->getView()->renderTemplate('herald/settings', [
+        return Craft::$app->getView()->renderTemplate('placard/settings', [
             'settings' => $this->getSettings(),
         ]);
     }

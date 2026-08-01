@@ -1,8 +1,8 @@
 <?php
 
-namespace bensomething\herald\web\twig;
+namespace bensomething\placard\web\twig;
 
-use bensomething\herald\Plugin;
+use bensomething\placard\Plugin;
 use craft\base\Element;
 use craft\elements\Asset;
 use craft\elements\db\AssetQuery;
@@ -10,16 +10,16 @@ use craft\elements\Entry;
 use craft\helpers\UrlHelper;
 
 /**
- * `craft.herald` template helpers.
+ * `craft.placard` template helpers.
  *
  * Typical usage in your <head>:
  *
- *   {% set og = craft.herald.entryHasImage(entry)
+ *   {% set og = craft.placard.entryHasImage(entry)
  *       ? entry.seoImage.one().url          {# your own share image #}
- *       : craft.herald.url(entry) %}        {# generated card #}
- *   <meta property="og:image" content="{{ og ?? craft.herald.default() }}">
+ *       : craft.placard.url(entry) %}        {# generated card #}
+ *   <meta property="og:image" content="{{ og ?? craft.placard.default() }}">
  */
-class HeraldVariable
+class PlacardVariable
 {
     /**
      * Absolute URL to the generated card for an entry, cache-busted on update.

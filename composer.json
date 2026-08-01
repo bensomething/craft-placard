@@ -1,5 +1,5 @@
 {
-    "name": "bensomething/craft-herald",
+    "name": "bensomething/craft-placard",
     "description": "Configurable social cards for entries with no image.",
     "type": "craft-plugin",
     "license": "MIT",
@@ -15,8 +15,8 @@
         "imagick"
     ],
     "support": {
-        "issues": "https://github.com/bensomething/craft-herald/issues",
-        "source": "https://github.com/bensomething/craft-herald"
+        "issues": "https://github.com/bensomething/craft-placard/issues",
+        "source": "https://github.com/bensomething/craft-placard"
     },
     "require": {
         "php": "^8.2",
@@ -29,17 +29,17 @@
     },
     "autoload": {
         "psr-4": {
-            "bensomething\\herald\\": "src/"
+            "bensomething\\placard\\": "src/"
         }
     },
     "extra": {
-        "handle": "herald",
-        "name": "Herald",
+        "handle": "placard",
+        "name": "Placard",
         "developer": "Ben Smith",
         "developerUrl": "https://bensomething.com",
-        "documentationUrl": "https://github.com/bensomething/craft-herald",
-        "changelogUrl": "https://raw.githubusercontent.com/bensomething/craft-herald/develop/CHANGELOG.md",
-        "class": "bensomething\\herald\\Plugin"
+        "documentationUrl": "https://github.com/bensomething/craft-placard",
+        "changelogUrl": "https://raw.githubusercontent.com/bensomething/craft-placard/develop/CHANGELOG.md",
+        "class": "bensomething\\placard\\Plugin"
     },
     "config": {
         "allow-plugins": {

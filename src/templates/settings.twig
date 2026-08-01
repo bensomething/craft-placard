@@ -1,10 +1,10 @@
-{# Herald plugin settings. Anything set in config/herald.php overrides these. #}
+{# Placard plugin settings. Anything set in config/placard.php overrides these. #}
 {% import "_includes/forms" as forms %}
 
 {# Anchor options shared by the logo + text elements. Native selects can't render
    Font Awesome icons in options, so prefix each with a matching Unicode arrow.
    "Center" becomes "Centre" outside US English. #}
-{% set positions = constant('bensomething\\herald\\models\\Settings::POSITIONS') %}
+{% set positions = constant('bensomething\\placard\\models\\Settings::POSITIONS') %}
 {% set arrows = {
     'top-left': '↖', 'top-center': '↑', 'top-right': '↗',
     'middle-left': '←', 'middle-center': '•', 'middle-right': '→',
@@ -19,8 +19,8 @@
     }]) %}
 {% endfor %}
 
-<div class="herald-settings" data-sample-url="{{ actionUrl('herald/image/sample') }}">
-<div class="herald-settings__main">
+<div class="placard-settings" data-sample-url="{{ actionUrl('placard/image/sample') }}">
+<div class="placard-settings__main">
 
 <h2>Canvas</h2>
 
@@ -97,7 +97,7 @@
 <hr>
 <h2>Text Elements</h2>
 
-{% set elementLabels = constant('bensomething\\herald\\models\\Settings::ELEMENTS')|values %}
+{% set elementLabels = constant('bensomething\\placard\\models\\Settings::ELEMENTS')|values %}
 {% set elementRows = [] %}
 {% for i, row in settings.cardElements %}
     {% set elementRows = elementRows|merge([{
@@ -135,7 +135,7 @@
 {# colorField strips the leading # from its text input (submitting bare hex), but
    uses the value verbatim for the swatch — so pass a #-prefixed value or the swatch
    renders no colour. The generator tolerates the bare hex that comes back on save. #}
-<div class="herald-palette">
+<div class="placard-palette">
     {{ forms.colorField({ label: 'Colour', id: 'backgroundColor', name: 'backgroundColor', value: '#' ~ settings.backgroundColor|trim('#') }) }}
 </div>
 
@@ -189,35 +189,35 @@
 
 {{ forms.textField({
     label: 'Default image path',
-    instructions: 'URL returned by craft.herald.default().',
+    instructions: 'URL returned by craft.placard.default().',
     id: 'defaultImagePath',
     name: 'defaultImagePath',
     value: settings.defaultImagePath,
 }) }}
 
-<p class="light">Image field handles and other advanced options are best set in <code>config/herald.php</code>.</p>
+<p class="light">Image field handles and other advanced options are best set in <code>config/placard.php</code>.</p>
 
-</div>{# /.herald-settings__main #}
+</div>{# /.placard-settings__main #}
 
-<div class="herald-settings__aside">
-    <div class="herald-settings__preview">
+<div class="placard-settings__aside">
+    <div class="placard-settings__preview">
         <h2>Preview</h2>
         <p class="light">Updates as you edit; save to keep the changes.</p>
-        {{ include('herald/_preview/cards', { imageUrl: actionUrl('herald/image/sample') }, with_context = false) }}
+        {{ include('placard/_preview/cards', { imageUrl: actionUrl('placard/image/sample') }, with_context = false) }}
     </div>
 </div>
 
-</div>{# /.herald-settings #}
+</div>{# /.placard-settings #}
 
 <style>
     /* Default `align-items: stretch` makes the aside as tall as the fields column,
        which the sticky preview needs room to travel within, and gives the pane's
        left border / background the full column height to span. */
-    .herald-settings { display: flex; gap: 40px; }
-    .herald-settings__main { flex: 1 1 auto; min-width: 0; }
+    .placard-settings { display: flex; gap: 40px; }
+    .placard-settings__main { flex: 1 1 auto; min-width: 0; }
     /* Dividers bleed to the pane's left edge and across the column gap to the
        preview, so they read as full-width rules across the fields area. */
-    .herald-settings__main hr {
+    .placard-settings__main hr {
         margin-left: calc(var(--pane-padding, 24px) * -1);
         margin-right: -40px;
     }
@@ -225,7 +225,7 @@
        edges of the settings pane (Craft's own breakout idiom, cf. #content-notice),
        then inner padding restores breathing room. --pane-padding tracks the CP's
        responsive value, so this stays flush at every width. */
-    .herald-settings__aside {
+    .placard-settings__aside {
         flex: 0 0 440px; box-sizing: border-box;
         margin: calc(var(--pane-padding, 24px) * -1) calc(var(--pane-padding, 24px) * -1) calc(var(--pane-padding, 24px) * -1) 0;
         padding: var(--pane-padding, 24px) var(--pane-padding, 24px) var(--pane-padding, 24px) 32px;
@@ -236,29 +236,29 @@
         border-top-right-radius: var(--pane-border-radius, 5px);
         border-bottom-right-radius: var(--pane-border-radius, 5px);
     }
-    .herald-settings__preview { position: sticky; top: 24px; }
-    .herald-settings__preview > h2 { margin-top: 0; }
+    .placard-settings__preview { position: sticky; top: 24px; }
+    .placard-settings__preview > h2 { margin-top: 0; }
     /* Let the preview fill the aside rather than the component's default 480px cap,
        so widening the column widens the cards. */
-    .herald-settings__preview .herald-sp { max-width: none; }
+    .placard-settings__preview .placard-sp { max-width: none; }
     /* Roomier preview on wide screens; falls back to the base width on medium. */
     @media (min-width: 1500px) {
-        .herald-settings__aside { flex-basis: 620px; }
+        .placard-settings__aside { flex-basis: 620px; }
     }
 
     /* Palette swatches sit in a single row rather than stacking. */
-    .herald-palette { display: flex; flex-wrap: wrap; gap: 24px; }
-    .herald-palette > .field { margin-top: 0; }
+    .placard-palette { display: flex; flex-wrap: wrap; gap: 24px; }
+    .placard-palette > .field { margin-top: 0; }
 
     /* Stack on narrow CP panes — the flex row would squeeze both columns otherwise. */
     @media (max-width: 900px) {
-        .herald-settings { display: block; }
-        .herald-settings__main hr { margin-left: 0; margin-right: 0; }
-        .herald-settings__aside {
+        .placard-settings { display: block; }
+        .placard-settings__main hr { margin-left: 0; margin-right: 0; }
+        .placard-settings__aside {
             flex-basis: auto; margin: 32px 0 0; padding: 24px 0 0;
             border-left: 0; background: none;
         }
-        .herald-settings__preview { position: static; }
+        .placard-settings__preview { position: static; }
     }
 </style>
 
@@ -267,9 +267,9 @@
 // anything changes. Polling rather than input/change events because the editable
 // table manages its own inputs and doesn't reliably surface those events here.
 (function () {
-    var root = document.querySelector('.herald-settings');
+    var root = document.querySelector('.placard-settings');
     if (!root) return;
-    var main = root.querySelector('.herald-settings__main');
+    var main = root.querySelector('.placard-settings__main');
     var base = root.dataset.sampleUrl;
     var last = null;
 
@@ -290,7 +290,7 @@
         last = key;
         params.set('_', Date.now());
         var url = base + (base.indexOf('?') >= 0 ? '&' : '?') + params.toString();
-        root.querySelectorAll('.herald-settings__preview .herald-sp__img').forEach(function (img) {
+        root.querySelectorAll('.placard-settings__preview .placard-sp__img').forEach(function (img) {
             img.style.backgroundImage = "url('" + url + "')";
         });
     }

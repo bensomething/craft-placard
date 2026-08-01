@@ -1,10 +1,10 @@
 <?php
 
-namespace bensomething\herald\controllers;
+namespace bensomething\placard\controllers;
 
-use bensomething\herald\models\Settings;
-use bensomething\herald\Plugin;
-use bensomething\herald\services\Generator;
+use bensomething\placard\models\Settings;
+use bensomething\placard\Plugin;
+use bensomething\placard\services\Generator;
 use Craft;
 use craft\elements\Entry;
 use craft\helpers\FileHelper;
@@ -90,7 +90,7 @@ class ImageController extends Controller
 
         $png = $generator->generate(
             'The quick brown fox jumps over the lazy dog',
-            Craft::t('herald', 'Article'),
+            Craft::t('placard', 'Article'),
         );
 
         $response = Craft::$app->getResponse();

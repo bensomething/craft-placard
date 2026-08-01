@@ -1,6 +1,6 @@
 <?php
 
-namespace bensomething\herald\fieldlayoutelements;
+namespace bensomething\placard\fieldlayoutelements;
 
 use Craft;
 use craft\base\ElementInterface;
@@ -17,13 +17,13 @@ use craft\web\View;
  *
  * The preview is a skeleton (title / description / brand text are placeholders),
  * so it needs no SEO or brand data — only the resolved share image. Registered in
- * {@see \bensomething\herald\Plugin::init()}.
+ * {@see \bensomething\placard\Plugin::init()}.
  */
 class SocialPreview extends BaseUiElement
 {
     protected function selectorLabel(): string
     {
-        return Craft::t('herald', 'Social Preview');
+        return Craft::t('placard', 'Social Preview');
     }
 
     protected function selectorIcon(): ?string
@@ -38,13 +38,13 @@ class SocialPreview extends BaseUiElement
         if (!$element instanceof Entry || !$element->id) {
             return Html::tag(
                 'p',
-                Craft::t('herald', 'Save the entry to preview how it will appear when shared.'),
+                Craft::t('placard', 'Save the entry to preview how it will appear when shared.'),
                 ['class' => 'light'],
             );
         }
 
         return Craft::$app->getView()->renderTemplate(
-            'herald/_preview/cards',
+            'placard/_preview/cards',
             ['entry' => $element],
             View::TEMPLATE_MODE_CP,
         );

@@ -1,8 +1,8 @@
 <?php
 
-namespace bensomething\herald\console\controllers;
+namespace bensomething\placard\console\controllers;
 
-use bensomething\herald\Plugin;
+use bensomething\placard\Plugin;
 use Craft;
 use craft\elements\Entry;
 use craft\helpers\Console;
@@ -12,9 +12,9 @@ use yii\console\ExitCode;
 /**
  * Renders sample cards to files for visual iteration.
  *
- *   php craft herald/preview <entryId>       # a real entry's resolved card
- *   php craft herald/preview --title="…"     # a dummy card from flags
- *   php craft herald/preview --title="…" --image=/path/to/photo.jpg
+ *   php craft placard/preview <entryId>       # a real entry's resolved card
+ *   php craft placard/preview --title="…"     # a dummy card from flags
+ *   php craft placard/preview --title="…" --image=/path/to/photo.jpg
  *
  * Output goes to storage/runtime/og-images-preview/.
  */
