@@ -1,0 +1,33 @@
+{# Settings page details sidebar: the card on its own, filling the pane. Its
+   controls (Preview, Show safe area, Refresh) are in the main content
+   (_settings.twig). #}
+<div class="placard-sidebar">
+    {{ include('placard/_preview/cards', {
+        imageUrl: actionUrl('placard/image/sample', { v: now|date('U') }),
+        maxWidth: false,
+    }, with_context = false) }}
+</div>
+
+{# This only loads on Placard's settings page, so it can't touch entry pages.
+   The sidebar is the whole point of the page, so it doesn't collapse: the toggle
+   goes, and a collapsed state remembered from before (Craft keeps it in a
+   cookie) is overridden rather than leaving the card hidden with no way back. #}
+{# It's also wider than Craft's 350px and drops its side padding, so the card gets
+   the room. The width only applies while the sidebar sits beside the content
+   (Craft's breakpoint): below that it stacks at full width, which is left alone. #}
+<style>
+    #details-toggle-wrapper { display: none; }
+    #details-container[data-state=collapsed] { display: block; }
+    #details .details { padding-inline: 0; }
+
+    @media only screen and (min-width: 60.875rem) {
+        :root { --details-width: 480px; }
+        #details { width: var(--details-width); }
+    }
+
+    /* Stacked, the card is already full width, so there's nothing for the
+       lightbox to add. */
+    @media only screen and (max-width: 60.8125rem) {
+        #details .placard-sp .buttons { display: none; }
+    }
+</style>

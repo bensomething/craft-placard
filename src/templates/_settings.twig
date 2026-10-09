@@ -1,0 +1,160 @@
+{# Settings page. Nothing here is editable — Placard is configured in
+   config/placard.php. The card itself is in the details sidebar (_sidebar.twig),
+   as on entry pages; these are its controls. #}
+{% import '_includes/forms' as forms %}
+
+{% if unknownHandles %}
+    <p class="warning has-icon">
+        <span class="icon" aria-hidden="true"></span>
+        <span class="visually-hidden">{{ 'Warning:'|t('app') }} </span>
+        <span>{{ 'These overrides don’t match a section or entry type, so they do nothing: {handles}'|t('placard', { handles: unknownHandles|map(h => "<code>#{h}</code>")|join(', ') })|raw }}</span>
+    </p>
+{% endif %}
+
+<div class="placard-settings" data-sample-url="{{ actionUrl('placard/image/sample') }}">
+    {% if previewOptions %}
+        {# Picking a pair fills the entry dropdown with its 10 most recent entries,
+           fetched then rather than up front for every pair. The caption only shows
+           for a pair with no entries, whose card falls back to placeholder text. #}
+        <div class="field">
+            <div class="heading">
+                <label for="placard-preview-type">{{ 'Preview'|t('placard') }}</label>
+            </div>
+            <div class="input ltr placard-settings__control">
+                <div class="select">
+                    <select id="placard-preview-type">
+                        <option value="" data-section="" data-type="">{{ 'Default'|t('placard') }}</option>
+                        {% for option in previewOptions %}
+                            <option data-section="{{ option.section }}" data-type="{{ option.type }}">
+                                {{- option.label -}}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="select hidden">
+                    <select id="placard-preview-entry" aria-label="{{ 'Entry'|t('app') }}"></select>
+                </div>
+                <span class="light placard-settings__caption hidden" aria-live="polite"></span>
+            </div>
+        </div>
+    {% endif %}
+
+    {{ forms.lightswitchField({
+        label: 'Show safe area'|t('placard'),
+        id: 'placard-safe-area',
+        instructions: 'Anything outside the shaded edge risks being cropped somewhere, keep text and logos inside it.'|t('placard'),
+    }) }}
+</div>
+
+{% if hasConfigFile %}
+    <p>{{ 'Placard is configured in {file}. The card it produces is in the sidebar.'|t('placard', { file: '<code>config/placard.php</code>' })|raw }}</p>
+{% else %}
+    <p>{{ 'There’s no {file} yet, so the sidebar shows the default card. Copy {example} from the plugin to {file} to set your own colours, fonts, logo and layout.'|t('placard', { file: '<code>config/placard.php</code>', example: '<code>example.config.php</code>' })|raw }}</p>
+{% endif %}
+
+<p class="light">{{ 'Use Refresh after changing the config to see the new card. Reload the page if you’ve added or renamed a section or entry type override, to update the Preview list. To choose and preview an entry’s share image, add a Social Image field to its entry type.'|t('placard') }}</p>
+
+<style>
+    .placard-settings { margin-bottom: 24px; }
+    .placard-settings__control {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+</style>
+
+{% do view.registerTranslations('placard', ['No entries yet, so this is placeholder text']) %}
+{% js %}
+(function () {
+    var root = document.querySelector('.placard-settings');
+    // The card is in the details sidebar, outside this template's markup.
+    var card = document.querySelector('#details .placard-sp');
+    if (!card) return;
+
+    // Craft's lightswitch fires a jQuery `change` on itself and carries its state
+    // as the `on` class.
+    $('#placard-safe-area').on('change', function () {
+        card.classList.toggle('is-showing-safe', $(this).hasClass('on'));
+    });
+
+    var select = document.getElementById('placard-preview-type');
+    var entrySelect = document.getElementById('placard-preview-entry');
+    var caption = root.querySelector('.placard-settings__caption');
+    var img = card.querySelector('.placard-sp__img');
+    var refresh = document.getElementById('placard-refresh');
+    var base = root.dataset.sampleUrl;
+    var pending = 0;
+    var listing = 0;
+
+    function selectedPair() {
+        var option = select ? select.options[select.selectedIndex] : null;
+        return option ? { section: option.dataset.section, type: option.dataset.type } : {};
+    }
+
+    // Re-renders the card for the current selection. The PNG is loaded off-screen
+    // first and only swapped in once it's ready, so the old card stays up while
+    // the new one renders rather than blanking out. A newer request supersedes an
+    // older one still in flight.
+    function render() {
+        var pair = selectedPair();
+        var params = { v: Date.now() };
+        if (pair.section) params.section = pair.section;
+        if (pair.type) params.type = pair.type;
+        if (entrySelect && entrySelect.value) params.entryId = entrySelect.value;
+
+        var url = Craft.getUrl(base, params);
+        var request = ++pending;
+        var loader = new Image();
+        refresh.classList.add('loading');
+
+        loader.onload = loader.onerror = function () {
+            if (request !== pending) return;
+            img.style.backgroundImage = "url('" + url + "')";
+            img.dataset.url = url;
+            refresh.classList.remove('loading');
+        };
+        loader.src = url;
+    }
+
+    // Fills the entry dropdown for the selected pair, then renders. The first
+    // (most recent) entry is selected, matching what the card shows without one.
+    function loadEntries() {
+        var pair = selectedPair();
+        var request = ++listing;
+        entrySelect.innerHTML = '';
+        entrySelect.parentNode.classList.add('hidden');
+        caption.classList.add('hidden');
+
+        if (!pair.section && !pair.type) {
+            render();
+            return;
+        }
+
+        Craft.sendActionRequest('GET', 'placard/image/sample-entries', {
+            params: { section: pair.section || '', type: pair.type || '' },
+        }).then(function (response) {
+            if (request !== listing) return;
+            var entries = response.data.entries || [];
+
+            entries.forEach(function (entry) {
+                var option = document.createElement('option');
+                option.value = entry.id;
+                option.textContent = entry.title;
+                entrySelect.appendChild(option);
+            });
+
+            if (entries.length) {
+                entrySelect.parentNode.classList.remove('hidden');
+            } else {
+                caption.textContent = Craft.t('placard', 'No entries yet, so this is placeholder text');
+                caption.classList.remove('hidden');
+            }
+            render();
+        }).catch(function () {
+            if (request === listing) render();
+        });
+    }
+
+    refresh.addEventListener('click', render);
+    if (select) select.addEventListener('change', loadEntries);
+    if (entrySelect) entrySelect.addEventListener('change', render);
+})();
+{% endjs %}

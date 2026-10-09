@@ -1,0 +1,138 @@
+{# Social Image field input: which image the entry shares, and the preview of it.
+
+   The preview follows the form as it's edited, before anything's saved: changing
+   the dropdown, or picking a different image in the field it points at (or in
+   any of the fields Automatic checks), swaps the image straight away. Asset URLs
+   come from placard/image/asset-url, cropped to the card's size the same way the
+   shared image is. #}
+{% import '_includes/forms' as forms %}
+{% set rootId = field.handle ~ '-placard-si' %}
+
+<div id="{{ rootId }}" class="placard-si"
+     data-card-url="{{ cardUrl }}"
+     data-auto-handles="{{ autoHandles|json_encode }}">
+    <div class="placard-si__source">
+        {{ forms.select({
+            id: field.handle ~ '-source',
+            name: field.handle ~ '[source]',
+            options: options,
+            value: value.source,
+        }) }}
+    </div>
+
+    <div class="placard-si__custom{{ value.source != 'custom' ? ' hidden' }}">
+        {{ forms.elementSelect({
+            id: field.handle ~ '-asset',
+            name: field.handle ~ '[assetId]',
+            elementType: 'craft\\elements\\Asset',
+            elements: asset ? [asset] : [],
+            limit: 1,
+            criteria: { kind: ['image'] },
+            selectionLabel: 'Choose an image'|t('placard'),
+        }) }}
+    </div>
+
+    {% if imageUrl %}
+        <div class="placard-si__preview">
+            {{ include('placard/_preview/cards', { imageUrl: imageUrl }, with_context = false) }}
+        </div>
+    {% else %}
+        <p class="light">{{ 'Save the entry to preview how it will appear when shared.'|t('placard') }}</p>
+    {% endif %}
+</div>
+
+<style>
+    .placard-si { display: flex; flex-direction: column; gap: 12px; }
+    .placard-si__source .select { max-width: 100%; }
+</style>
+
+{% js %}
+(function () {
+    var root = document.getElementById({{ view.namespaceInputId(rootId)|json_encode|raw }});
+    if (!root) return;
+
+    var select = root.querySelector('.placard-si__source select');
+    var custom = root.querySelector('.placard-si__custom');
+    var img = root.querySelector('.placard-sp__img');
+    var cardUrl = root.dataset.cardUrl;
+    var autoHandles = JSON.parse(root.dataset.autoHandles || '[]');
+    var form = root.closest('form') || document;
+    var urls = {};
+    var pending = 0;
+
+    // The first selected asset id in one of the entry's asset fields, by handle.
+    function selectedIn(handle) {
+        var field = form.querySelector('.field[data-attribute="' + handle + '"]');
+        var element = field && field.querySelector('.elements [data-id]');
+        return element ? element.dataset.id : null;
+    }
+
+    // The asset id the current choice resolves to, or null for the card — the
+    // same order Placard uses when sharing, so the preview can't disagree with it.
+    function resolve() {
+        var source = select.value;
+        if (source === 'card') return null;
+        if (source === 'custom') {
+            var picked = custom.querySelector('.elements [data-id]');
+            if (picked) return picked.dataset.id;
+        } else if (source.indexOf('field:') === 0) {
+            var id = selectedIn(source.slice(6));
+            if (id) return id;
+        }
+        for (var i = 0; i < autoHandles.length; i++) {
+            var auto = selectedIn(autoHandles[i]);
+            if (auto) return auto;
+        }
+        return null;
+    }
+
+    function show(url) {
+        var loader = new Image();
+        var request = ++pending;
+        loader.onload = loader.onerror = function () {
+            if (request !== pending) return;
+            img.style.backgroundImage = "url('" + url + "')";
+            img.dataset.url = url;
+        };
+        loader.src = url;
+    }
+
+    function update() {
+        custom.classList.toggle('hidden', select.value !== 'custom');
+        if (!img) return;
+
+        var assetId = resolve();
+        if (!assetId) {
+            if (cardUrl) show(cardUrl);
+            return;
+        }
+        if (urls[assetId]) {
+            show(urls[assetId]);
+            return;
+        }
+        Craft.sendActionRequest('GET', 'placard/image/asset-url', { params: { assetId: assetId } })
+            .then(function (response) {
+                urls[assetId] = response.data.url;
+                if (resolve() === assetId) show(response.data.url);
+            })
+            .catch(function () {});
+    }
+
+    select.addEventListener('change', update);
+
+    // Picking or removing an image (here or in a watched field) changes the
+    // element list, so watch the lists rather than each input's own events.
+    var observer = new MutationObserver(update);
+    var watched = [custom].concat(Array.prototype.map.call(
+        select.options,
+        function (option) {
+            return option.value.indexOf('field:') === 0 ? option.value.slice(6) : null;
+        }
+    ).concat(autoHandles).filter(Boolean).map(function (handle) {
+        return form.querySelector('.field[data-attribute="' + handle + '"]');
+    }));
+    watched.forEach(function (node) {
+        if (node) observer.observe(node, { childList: true, subtree: true });
+    });
+})();
+{% endjs %}

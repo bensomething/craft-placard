@@ -23,12 +23,13 @@ class PreviewController extends Controller
     public ?string $title = 'The quick brown fox jumps over the lazy dog';
     public ?string $label = 'Preview';
     public ?string $description = null;
-    public ?string $date = null;
+    public ?string $meta = null;
     public ?string $image = null;
+    public ?string $backgroundColor = null;
 
     public function options($actionID): array
     {
-        return ['title', 'label', 'description', 'date', 'image'];
+        return ['title', 'label', 'description', 'meta', 'image', 'backgroundColor'];
     }
 
     public function actionIndex(?int $entryId = null): int
@@ -54,7 +55,7 @@ class PreviewController extends Controller
                 }
             }
 
-            $png = $generator->generate($card->title, $card->label, $blob, $card->date, $card->description);
+            $png = $generator->generate($card->title, $card->label, $blob, $card->meta, $card->description, $card->backgroundColor, $card->settings);
             $file = "$dir/entry-$entryId.png";
             file_put_contents($file, $png);
             $this->stdout("Wrote $file\n", Console::FG_GREEN);
@@ -63,7 +64,7 @@ class PreviewController extends Controller
         }
 
         $blob = $this->image && is_file($this->image) ? file_get_contents($this->image) : null;
-        $png = $generator->generate((string)$this->title, $this->label, $blob, $this->date, $this->description);
+        $png = $generator->generate((string)$this->title, $this->label, $blob, $this->meta, $this->description, $this->backgroundColor);
         $file = "$dir/sample.png";
         file_put_contents($file, $png);
         $this->stdout("Wrote $file\n", Console::FG_GREEN);

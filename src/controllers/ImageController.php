@@ -2,10 +2,9 @@
 
 namespace bensomething\placard\controllers;
 
-use bensomething\placard\models\Settings;
 use bensomething\placard\Plugin;
-use bensomething\placard\services\Generator;
 use Craft;
+use craft\elements\Asset;
 use craft\elements\Entry;
 use craft\helpers\FileHelper;
 use craft\web\Controller;
@@ -21,7 +20,7 @@ use yii\web\Response;
  */
 class ImageController extends Controller
 {
-    protected array|bool|int $allowAnonymous = true;
+    protected array|bool|int $allowAnonymous = ['generate'];
 
     public function actionGenerate(int $entryId): Response
     {
@@ -44,31 +43,24 @@ class ImageController extends Controller
         $background = $card->background;
         $token = $entry->dateUpdated?->getTimestamp() ?? 0;
         $bgKey = $background ? $background->id . ':' . ($background->dateModified?->getTimestamp() ?? 0) : '';
-        // Fingerprint the settings so design changes (placement, fonts, palette,
-        // dimensions) bust the cache, not just changes to the card's content.
-        $design = md5(serialize(Plugin::getInstance()->getSettings()->getAttributes()));
-        $hash = substr(md5("$card->title|$card->label|$card->description|$card->date|$token|$bgKey|$design"), 0, 10);
+        // Fingerprint the card's own settings (overrides and handler changes
+        // included) so brand changes (fonts, palette, images) bust the cache, not just changes to the card's content.
+        $design = md5(serialize($card->settings->getAttributes()));
+        $hash = substr(md5("$card->title|$card->label|$card->description|$card->meta|$card->backgroundColor|$token|$bgKey|$design"), 0, 10);
 
         $dir = Craft::$app->getPath()->getRuntimePath() . '/og-images';
         FileHelper::createDirectory($dir);
         $file = "$dir/og-$entryId-$hash.png";
 
         if (!is_file($file)) {
-            $backgroundBlob = null;
-            if ($background) {
-                try {
-                    $backgroundBlob = $background->getContents();
-                } catch (\Throwable) {
-                    $backgroundBlob = null;
-                }
-            }
-
             file_put_contents($file, $generator->generate(
                 $card->title,
                 $card->label,
-                $backgroundBlob,
-                $card->date,
+                $this->assetContents($background),
+                $card->meta,
                 $card->description,
+                $card->backgroundColor,
+                $card->settings,
             ));
         }
 
@@ -82,25 +74,52 @@ class ImageController extends Controller
     }
 
     /**
-     * Streams a card rendered from sample text, so the CP settings page can preview
-     * the design. Any query params matching settings attributes override the saved
-     * value, letting the preview update live as fields change (before saving). Not
-     * cached — it re-renders every request.
+     * Streams a preview card for the plugin's settings page. Not cached, so a config
+     * change shows on reload.
+     *
+     * With no `section` / `type` handles it's placeholder text on the base settings.
+     * With them, it's an entry of that pair rendered for real — `entryId` if it's
+     * one of them, else the most recent. Its colour field, image and DefineCard
+     * handlers are what those overrides are usually about, and placeholder text
+     * would show none of them. If there's no such entry, it falls back to
+     * placeholder text with the pair's settings.
      */
     public function actionSample(): Response
     {
-        $settings = $this->sampleSettings();
+        $this->requireAdmin(false);
 
-        $generator = new Generator();
-        $generator->setSettings($settings);
+        $generator = Plugin::getInstance()->getGenerator();
+        $sectionHandle = $this->request->getQueryParam('section') ?: null;
+        $typeHandle = $this->request->getQueryParam('type') ?: null;
+        $entryId = (int)$this->request->getQueryParam('entryId') ?: null;
+        // Looked up within the pair, so the picker can't be pointed elsewhere.
+        $entry = $entryId
+            ? $generator->sampleEntryQuery($sectionHandle, $typeHandle)?->id($entryId)->one()
+            : $generator->sampleEntry($sectionHandle, $typeHandle);
 
-        $png = $generator->generate(
-            'The quick brown fox jumps over the lazy dog',
-            Craft::t('placard', 'Article'),
-            null,
-            null,
-            Craft::t('placard', 'A short standfirst, so the description row previews with something in it.'),
-        );
+        if ($entry) {
+            $card = $generator->defineCard($entry);
+            $png = $generator->generate(
+                $card->title,
+                $card->label,
+                $this->assetContents($card->background),
+                $card->meta,
+                $card->description,
+                $card->backgroundColor,
+                $card->settings,
+            );
+        } else {
+            $type = $typeHandle ? Craft::$app->getEntries()->getEntryTypeByHandle($typeHandle) : null;
+            $png = $generator->generate(
+                Craft::t('placard', 'The quick brown fox jumps over the lazy dog'),
+                $type?->name ?? Craft::t('placard', 'Label'),
+                null,
+                date('j F Y'),
+                Craft::t('placard', 'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'),
+                null,
+                Plugin::getInstance()->getSettings()->forTypes($sectionHandle, $typeHandle),
+            );
+        }
 
         $response = Craft::$app->getResponse();
         $response->format = Response::FORMAT_RAW;
@@ -112,40 +131,56 @@ class ImageController extends Controller
     }
 
     /**
-     * Clones the saved settings and applies any query-param overrides, cast to each
-     * attribute's type. Unknown params and array/asset settings are ignored.
+     * The entries the settings preview can pick from for a section / entry type
+     * pair, as JSON: the 10 most recently updated, newest first.
      */
-    private function sampleSettings(): Settings
+    public function actionSampleEntries(): Response
     {
-        $settings = clone Plugin::getInstance()->getSettings();
-        $params = Craft::$app->getRequest()->getQueryParams();
+        $this->requireAdmin(false);
+        $this->requireAcceptsJson();
 
-        // The CP namespaces plugin-settings inputs under `settings`, which is how
-        // the live-preview form serialises them; unwrap so keys match our attributes.
-        if (isset($params['settings']) && is_array($params['settings'])) {
-            $params = $params['settings'];
+        $query = Plugin::getInstance()->getGenerator()->sampleEntryQuery(
+            $this->request->getQueryParam('section') ?: null,
+            $this->request->getQueryParam('type') ?: null,
+        );
+
+        $entries = [];
+        foreach ($query?->limit(10)->all() ?? [] as $entry) {
+            $entries[] = ['id' => $entry->id, 'title' => (string)$entry->title];
         }
 
-        foreach ($params as $key => $value) {
-            if (!property_exists($settings, $key) || is_array($value)) {
-                continue;
-            }
+        return $this->asJson(['entries' => $entries]);
+    }
 
-            $current = $settings->$key;
-            $settings->$key = match (true) {
-                is_int($current) => (int)$value,
-                is_float($current) => (float)$value,
-                is_bool($current) => in_array($value, ['1', 'true', 'on', true, 1], true),
-                default => (string)$value,
-            };
+    /**
+     * An asset's URL as a share image (cropped to the card's size), for the Social
+     * Image field to preview a pick before the entry's saved. Logged-in only (the
+     * controller only lets `generate` through anonymously), and only for assets the
+     * user can view.
+     */
+    public function actionAssetUrl(): Response
+    {
+        $this->requireAcceptsJson();
+
+        $asset = Asset::find()->id((int)$this->request->getRequiredQueryParam('assetId'))->kind('image')->one();
+        if (!$asset || !Craft::$app->getElements()->canView($asset)) {
+            throw new NotFoundHttpException('Asset not found.');
         }
 
-        // The element table arrives as a nested array; normalize it into shape.
-        if (isset($params['cardElements']) && is_array($params['cardElements'])) {
-            $settings->cardElements = $params['cardElements'];
-            $settings->normalizeCardElements();
+        return $this->asJson(['url' => Plugin::getInstance()->getGenerator()->assetShareUrl($asset)]);
+    }
+
+    /** An asset's file contents, or null when there's no asset or it can't be read. */
+    private function assetContents(?Asset $asset): ?string
+    {
+        if (!$asset) {
+            return null;
         }
 
-        return $settings;
+        try {
+            return $asset->getContents();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }
