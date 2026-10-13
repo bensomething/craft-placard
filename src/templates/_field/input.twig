@@ -1,49 +1,52 @@
-{# Social Image field input: which image the entry shares, and the preview of it.
-
-   The preview follows the form as it's edited, before anything's saved: changing
-   the dropdown, or picking a different image in the field it points at (or in
-   any of the fields Automatic checks), swaps the image straight away. Asset URLs
-   come from placard/image/asset-url, cropped to the card's size the same way the
-   shared image is. #}
+{# Social Image field input. The preview follows unsaved edits to the dropdown and the fields it points at. #}
 {% import '_includes/forms' as forms %}
 {% set rootId = field.handle ~ '-placard-si' %}
 
 <div id="{{ rootId }}" class="placard-si"
-     data-card-url="{{ cardUrl }}"
-     data-auto-handles="{{ autoHandles|json_encode }}">
-    <div class="placard-si__source">
-        {{ forms.select({
-            id: field.handle ~ '-source',
-            name: field.handle ~ '[source]',
-            options: options,
-            value: value.source,
-        }) }}
-    </div>
-
-    <div class="placard-si__custom{{ value.source != 'custom' ? ' hidden' }}">
-        {{ forms.elementSelect({
-            id: field.handle ~ '-asset',
-            name: field.handle ~ '[assetId]',
-            elementType: 'craft\\elements\\Asset',
-            elements: asset ? [asset] : [],
-            limit: 1,
-            criteria: { kind: ['image'] },
-            selectionLabel: 'Choose an image'|t('placard'),
-        }) }}
-    </div>
-
+     data-card-url="{{ cardUrl }}">
     {% if imageUrl %}
         <div class="placard-si__preview">
-            {{ include('placard/_preview/cards', { imageUrl: imageUrl }, with_context = false) }}
+            {# Shown for Custom Image with nothing chosen, instead of the fallback card. #}
+            {{ include('placard/_preview/cards', {
+                imageUrl: imageUrl,
+                placeholder: tag('div', { class: 'cp-icon', html: iconSvg('hexagon-image'), 'aria-hidden': 'true' }),
+            }, with_context = false) }}
         </div>
     {% else %}
         <p class="light">{{ 'Save the entry to preview how it will appear when shared.'|t('placard') }}</p>
     {% endif %}
+
+    <div class="placard-si__controls">
+        {# Hidden, not removed, with one option, so the value still posts. #}
+        <div class="placard-si__source{{ options|filter(o => o.value is defined)|length < 2 ? ' hidden' }}">
+            {{ forms.select({
+                id: field.handle ~ '-source',
+                name: field.handle ~ '[source]',
+                options: options,
+                value: value.source,
+            }) }}
+        </div>
+
+        <div class="placard-si__custom{{ value.source != 'custom' ? ' hidden' }}">
+            {{ forms.elementSelect({
+                id: field.handle ~ '-asset',
+                name: field.handle ~ '[assetId]',
+                elementType: 'craft\\elements\\Asset',
+                elements: asset ? [asset] : [],
+                limit: 1,
+                criteria: { kind: ['image'] },
+                selectionLabel: 'Choose an image'|t('placard'),
+            }) }}
+        </div>
+    </div>
 </div>
 
 <style>
     .placard-si { display: flex; flex-direction: column; gap: 12px; }
     .placard-si__source .select { max-width: 100%; }
+    .placard-si__controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .placard-si__controls > .hidden { display: none; }
+    .placard-si__custom .elementselect { margin: 0; }
 </style>
 
 {% js %}
@@ -53,35 +56,28 @@
 
     var select = root.querySelector('.placard-si__source select');
     var custom = root.querySelector('.placard-si__custom');
+    var preview = root.querySelector('.placard-sp');
     var img = root.querySelector('.placard-sp__img');
     var cardUrl = root.dataset.cardUrl;
-    var autoHandles = JSON.parse(root.dataset.autoHandles || '[]');
     var form = root.closest('form') || document;
     var urls = {};
     var pending = 0;
 
-    // The first selected asset id in one of the entry's asset fields, by handle.
     function selectedIn(handle) {
         var field = form.querySelector('.field[data-attribute="' + handle + '"]');
         var element = field && field.querySelector('.elements [data-id]');
         return element ? element.dataset.id : null;
     }
 
-    // The asset id the current choice resolves to, or null for the card — the
-    // same order Placard uses when sharing, so the preview can't disagree with it.
+    // Asset id for the current choice, or null for the card. Mirrors Placard's share rule.
     function resolve() {
         var source = select.value;
-        if (source === 'card') return null;
         if (source === 'custom') {
             var picked = custom.querySelector('.elements [data-id]');
-            if (picked) return picked.dataset.id;
-        } else if (source.indexOf('field:') === 0) {
-            var id = selectedIn(source.slice(6));
-            if (id) return id;
+            return picked ? picked.dataset.id : null;
         }
-        for (var i = 0; i < autoHandles.length; i++) {
-            var auto = selectedIn(autoHandles[i]);
-            if (auto) return auto;
+        if (source.indexOf('field:') === 0) {
+            return selectedIn(source.slice(6));
         }
         return null;
     }
@@ -97,9 +93,15 @@
         loader.src = url;
     }
 
+    function isEmpty() {
+        return select.value === 'custom' && !custom.querySelector('.elements [data-id]');
+    }
+
     function update() {
         custom.classList.toggle('hidden', select.value !== 'custom');
         if (!img) return;
+
+        preview.classList.toggle('is-empty', isEmpty());
 
         var assetId = resolve();
         if (!assetId) {
@@ -118,21 +120,44 @@
             .catch(function () {});
     }
 
+    if (preview) preview.classList.toggle('is-empty', isEmpty());
     select.addEventListener('change', update);
 
-    // Picking or removing an image (here or in a watched field) changes the
-    // element list, so watch the lists rather than each input's own events.
+    // Watch the element lists, as picking or removing an image fires no change event.
     var observer = new MutationObserver(update);
     var watched = [custom].concat(Array.prototype.map.call(
         select.options,
         function (option) {
             return option.value.indexOf('field:') === 0 ? option.value.slice(6) : null;
         }
-    ).concat(autoHandles).filter(Boolean).map(function (handle) {
+    ).filter(Boolean).map(function (handle) {
         return form.querySelector('.field[data-attribute="' + handle + '"]');
     }));
     watched.forEach(function (node) {
         if (node) observer.observe(node, { childList: true, subtree: true });
     });
+
+    // The card only reflects edits once the draft saves, so refetch it then.
+    // Bound on the class, as this form's editor may not exist yet.
+    if (img && window.Craft && Craft.ElementEditor) {
+        var onSave = function (ev) {
+            var editor = ev.target;
+            if (!document.body.contains(root)) {
+                Garnish.off(Craft.ElementEditor, 'afterSaveDraft', onSave);
+                return;
+            }
+            if (!editor.$container[0].contains(root)) return;
+            Craft.sendActionRequest('GET', 'placard/image/card-url', {
+                params: { entryId: editor.settings.elementId, siteId: editor.settings.siteId },
+            })
+                .then(function (response) {
+                    // The URL is versioned by dateUpdated, to the second, so bust it per save.
+                    cardUrl = response.data.url + '&t=' + Date.now();
+                    update();
+                })
+                .catch(function () {});
+        };
+        Garnish.on(Craft.ElementEditor, 'afterSaveDraft', onSave);
+    }
 })();
 {% endjs %}

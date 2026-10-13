@@ -1,23 +1,12 @@
 {#
-    Share preview.
-
-    Deliberately *not* a mock-up of any platform's card. Every consumer of an
-    og:image crops it to its own box — and not one box per platform either: feed vs.
-    compact card, mobile vs. desktop, and Slack / WhatsApp / iMessage are tighter
-    than any of them. Chasing per-platform fidelity means maintaining a lookup table
-    of other people's CSS that goes stale the moment one of them redesigns.
-
-    So this shows the one thing that is stable and actionable: the card at its real
-    aspect ratio, and — on demand — the safe area every crop keeps. Lay the elements
-    out inside that and they survive everywhere. The safe area is switched on by
-    adding `is-showing-safe` to `.placard-sp`; the settings page's lightswitch
-    does that. The entry editor shows the card alone.
+    Share preview: the card at its real aspect ratio, not a per-platform mock-up, as every
+    platform crops differently. `is-showing-safe` on `.placard-sp` overlays the safe area.
 
     Params:
-      imageUrl      Explicit image URL to frame (used by the settings-page sample).
-      entry         An entry to resolve the share image from, when imageUrl is absent.
-      maxWidth      Widest the preview gets, in px. Defaults to 480, which suits the
-                    entry editor's field column; false lets it fill its container.
+      imageUrl     Image to frame. Defaults to the entry's share image.
+      entry        Entry to resolve the image from when imageUrl is absent.
+      maxWidth     Max width in px (default 480). false fills the container.
+      placeholder  HTML shown instead of the card while `.placard-sp` has `is-empty`.
 #}
 {% set imageUrl = imageUrl ?? (entry ?? null ? craft.placard.shareImageUrl(entry) : null) %}
 
@@ -25,22 +14,19 @@
     {% set placard = craft.app.plugins.getPlugin('placard') %}
     {% set cardWidth = placard ? placard.settings.width : 1200 %}
     {% set cardHeight = placard ? placard.settings.height : 630 %}
-    {# The card's own colour sits under the image, so there's no grey flash while
-       the PNG loads. Colours may be configured as bare hex, hence the prefix. #}
+    {# Sits under the image to avoid a grey flash while loading. Config may omit the #. #}
     {% set cardBg = placard ? '#' ~ placard.settings.backgroundColor|trim('#') : '#000000' %}
 
     <div class="placard-sp" style="--placard-w: {{ cardWidth }}; --placard-h: {{ cardHeight }}; --placard-bg: {{ cardBg }}; --placard-max-w: {{ (maxWidth ?? 480) is same as(false) ? 'none' : (maxWidth ?? 480) ~ 'px' }}">
-        {# `button-fade` + `.buttons` is Craft's own hover-to-reveal button, as on an
-           asset's preview thumb, so it looks and behaves the same (it also shows on
-           keyboard focus). `data-url` tracks the image actually on screen, which
-           the settings page swaps out, so the lightbox opens what you're seeing. #}
+        {# `data-url` tracks the image on screen (the settings page swaps it) for the lightbox. #}
         <div class="placard-sp__frame button-fade">
             <div class="placard-sp__img" data-url="{{ imageUrl }}" style="background-image:url('{{ imageUrl }}')"></div>
             <div class="placard-sp__safe" aria-hidden="true"></div>
+            {% if placeholder ?? false %}
+                <div class="placard-sp__placeholder">{{ placeholder|raw }}</div>
+            {% endif %}
             <div class="buttons">
-                {# Not Craft's `preview-btn` class, though it's the same button: the
-                   entry editor binds that class to Live Preview, so it would open
-                   both. `data-icon="view"` is the same eye. #}
+                {# Not `preview-btn`: the entry editor binds that to Live Preview, so both would open. #}
                 <button type="button" class="btn placard-sp__open" data-icon="view">{{ 'Preview'|t('app') }}</button>
             </div>
         </div>
@@ -49,9 +35,7 @@
     <style>
         .placard-sp {
             max-width: var(--placard-max-w, 480px);
-            /* The share consensus is a 1200×630 canvas with the important content
-               kept inside a central 1080×600 — 5% in on each side, 2.4% top and
-               bottom. Proportional, so it holds at any configured canvas size. */
+            /* The usual 1080×600 safe area of a 1200×630 card, as proportions so any size works. */
             --placard-safe-x: 5%;
             --placard-safe-y: 2.4%;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -65,10 +49,7 @@
             position: absolute; inset: 0;
             background: var(--placard-bg, #e9ebee) center/cover no-repeat;
         }
-        /* Shades the at-risk margin rather than outlining the middle, so the eye
-           reads "this part might go" rather than "this is a crop mark". An outsized
-           spread on the inset box fills everything around it; the frame's overflow
-           clips it. Plain box-shadow, so no mask-compositing support to worry about. */
+        /* Shades the margin at risk. The huge spread fills it and the frame's overflow clips it. */
         .placard-sp__safe {
             position: absolute;
             inset: var(--placard-safe-y) var(--placard-safe-x);
@@ -78,13 +59,21 @@
         }
         .placard-sp.is-showing-safe .placard-sp__safe { opacity: 1; }
 
+        .placard-sp__placeholder {
+            position: absolute; inset: 0;
+            display: none; align-items: center; justify-content: center;
+            background: var(--gray-100, #e4e9f0); color: var(--gray-400, #7b8793);
+        }
+        .placard-sp__placeholder .cp-icon { width: 48px; height: 48px; }
+        .placard-sp__placeholder svg { width: 100%; height: 100%; fill: currentColor; }
+        .placard-sp.is-empty .placard-sp__placeholder { display: flex; }
+        .placard-sp.is-empty .buttons { display: none; }
+
         .placard-lightbox {
             background: none; box-shadow: none;
             border-radius: 6px; overflow: hidden;
         }
-        /* The largest card that fits 90% of the window both ways, never wider than
-           its real width — past that the PNG is only being upscaled and goes
-           soft. aspect-ratio keeps its shape whichever limit wins. */
+        /* Fits 90% of the window, capped at the card's real width so the PNG isn't upscaled. */
         .placard-lightbox > img {
             display: block; height: auto;
             aspect-ratio: var(--placard-lb-w) / var(--placard-lb-h);
@@ -108,15 +97,10 @@
             var cardWidth = parseFloat(style.getPropertyValue('--placard-w'));
             var cardHeight = parseFloat(style.getPropertyValue('--placard-h'));
 
-            // Lightbox, after Craft's asset preview. Craft.PreviewFileModal only
-            // takes an asset id, and the card isn't an asset, so it's a plain
-            // Garnish.Modal. The image sizes itself in CSS (see .placard-lightbox)
-            // and the modal wraps it: Garnish clamps width and height separately,
-            // with a 200px floor on the height, so handing it a size squashes the
-            // card in a short or narrow window.
+            // Plain Garnish.Modal, as Craft.PreviewFileModal needs an asset id. The image sizes
+            // itself in CSS, since Garnish clamps width and height separately and would squash it.
             open.addEventListener('click', function () {
-                // `fitted` drops Craft's default modal size (66% of the window, at
-                // least 600×400), so the modal is exactly the size of the card.
+                // `fitted` drops Craft's default modal size so it hugs the card.
                 var $container = $('<div class="modal fitted placard-lightbox"/>')
                     .css({ '--placard-lb-w': cardWidth, '--placard-lb-h': cardHeight })
                     .append($('<img/>', { src: img.dataset.url, alt: '' }));

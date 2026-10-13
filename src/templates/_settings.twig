@@ -1,6 +1,4 @@
-{# Settings page. Nothing here is editable — Placard is configured in
-   config/placard.php. The card itself is in the details sidebar (_sidebar.twig),
-   as on entry pages; these are its controls. #}
+{# Read-only, as config lives in config/placard.php. These control the card in _sidebar.twig. #}
 {% import '_includes/forms' as forms %}
 
 {% if unknownHandles %}
@@ -13,9 +11,7 @@
 
 <div class="placard-settings" data-sample-url="{{ actionUrl('placard/image/sample') }}">
     {% if previewOptions %}
-        {# Picking a pair fills the entry dropdown with its 10 most recent entries,
-           fetched then rather than up front for every pair. The caption only shows
-           for a pair with no entries, whose card falls back to placeholder text. #}
+        {# Entries are fetched when a pair is picked, not up front. #}
         <div class="field">
             <div class="heading">
                 <label for="placard-preview-type">{{ 'Preview'|t('placard') }}</label>
@@ -39,12 +35,22 @@
         </div>
     {% endif %}
 
+    {# Hidden for now.
     {{ forms.lightswitchField({
         label: 'Show safe area'|t('placard'),
         id: 'placard-safe-area',
-        instructions: 'Anything outside the shaded edge risks being cropped somewhere, keep text and logos inside it.'|t('placard'),
+        instructions: 'Anything outside the shaded edge risks being cropped somewhere. Keep text and logos inside it.'|t('placard'),
     }) }}
+    #}
 </div>
+
+{# A direct child of the content pane, so Craft runs it full width. Only needed
+   under the Preview dropdown. #}
+{% if previewOptions %}
+    <hr>
+{% endif %}
+
+<h2>{{ 'Card Configuration'|t('placard') }}</h2>
 
 {% if hasConfigFile %}
     <p>{{ 'Placard is configured in {file}. The card it produces is in the sidebar.'|t('placard', { file: '<code>config/placard.php</code>' })|raw }}</p>
@@ -52,10 +58,13 @@
     <p>{{ 'There’s no {file} yet, so the sidebar shows the default card. Copy {example} from the plugin to {file} to set your own colours, fonts, logo and layout.'|t('placard', { file: '<code>config/placard.php</code>', example: '<code>example.config.php</code>' })|raw }}</p>
 {% endif %}
 
-<p class="light">{{ 'Use Refresh after changing the config to see the new card. Reload the page if you’ve added or renamed a section or entry type override, to update the Preview list. To choose and preview an entry’s share image, add a Social Image field to its entry type.'|t('placard') }}</p>
+<ul class="bullets light">
+    <li>{{ 'Use the <strong>Refresh</strong> button in the top right after changing the config to see the updated card in the sidebar.'|t('placard')|raw }}</li>
+    <li>{{ 'Reload this page if you’ve added or renamed a section or entry type override, to update the <strong>Preview</strong> list above.'|t('placard')|raw }}</li>
+    <li>{{ 'To select and preview an entry’s share image in the sidebar, add a <strong>Social Image</strong> field to its entry type.'|t('placard')|raw }}</li>
+</ul>
 
 <style>
-    .placard-settings { margin-bottom: 24px; }
     .placard-settings__control {
         display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     }
@@ -65,12 +74,11 @@
 {% js %}
 (function () {
     var root = document.querySelector('.placard-settings');
-    // The card is in the details sidebar, outside this template's markup.
+    // Rendered by _sidebar.twig.
     var card = document.querySelector('#details .placard-sp');
     if (!card) return;
 
-    // Craft's lightswitch fires a jQuery `change` on itself and carries its state
-    // as the `on` class.
+    // Craft's lightswitch fires a jQuery `change` and holds its state as the `on` class.
     $('#placard-safe-area').on('change', function () {
         card.classList.toggle('is-showing-safe', $(this).hasClass('on'));
     });
@@ -89,10 +97,7 @@
         return option ? { section: option.dataset.section, type: option.dataset.type } : {};
     }
 
-    // Re-renders the card for the current selection. The PNG is loaded off-screen
-    // first and only swapped in once it's ready, so the old card stays up while
-    // the new one renders rather than blanking out. A newer request supersedes an
-    // older one still in flight.
+    // Preloads the PNG so the old card stays up until the new one is ready.
     function render() {
         var pair = selectedPair();
         var params = { v: Date.now() };
@@ -114,8 +119,7 @@
         loader.src = url;
     }
 
-    // Fills the entry dropdown for the selected pair, then renders. The first
-    // (most recent) entry is selected, matching what the card shows without one.
+    // The first (most recent) entry stays selected, matching the card with none chosen.
     function loadEntries() {
         var pair = selectedPair();
         var request = ++listing;

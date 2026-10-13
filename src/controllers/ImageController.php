@@ -11,78 +11,37 @@ use craft\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
-/**
- * Streams generated OG cards: /og/<entryId>.png
- *
- * The card's content is resolved by the generator's DefineCard event (defaults +
- * per-project overrides); this controller only handles lookup, caching and
- * streaming, so it carries no site-specific logic.
- */
 class ImageController extends Controller
 {
     protected array|bool|int $allowAnonymous = ['generate'];
 
+    /**
+     * Public, so live entries only. Drafts and disabled entries 404 so unpublished
+     * content can't be read off the URL. The CP uses {@see actionPreview()}.
+     */
     public function actionGenerate(int $entryId): Response
     {
-        // Include drafts / provisional drafts so SEO previews of unsaved entries
-        // (slug `__temp_…`) resolve a card instead of 404ing.
-        $entry = Entry::find()
-            ->id($entryId)
-            ->drafts(null)
-            ->provisionalDrafts(null)
-            ->status(null)
-            ->one();
+        $entry = Entry::find()->id($entryId)->one();
 
         if (!$entry) {
             throw new NotFoundHttpException('Entry not found.');
         }
 
-        $generator = Plugin::getInstance()->getGenerator();
-        $card = $generator->defineCard($entry);
+        return $this->cardResponse($entry, 'public, max-age=31536000, immutable');
+    }
 
-        $background = $card->background;
-        $token = $entry->dateUpdated?->getTimestamp() ?? 0;
-        $bgKey = $background ? $background->id . ':' . ($background->dateModified?->getTimestamp() ?? 0) : '';
-        // Fingerprint the card's own settings (overrides and handler changes
-        // included) so brand changes (fonts, palette, images) bust the cache, not just changes to the card's content.
-        $design = md5(serialize($card->settings->getAttributes()));
-        $hash = substr(md5("$card->title|$card->label|$card->description|$card->meta|$card->backgroundColor|$token|$bgKey|$design"), 0, 10);
+    /** Logged-in only, as it renders drafts and disabled entries. */
+    public function actionPreview(): Response
+    {
+        $entry = $this->viewableEntry();
 
-        $dir = Craft::$app->getPath()->getRuntimePath() . '/og-images';
-        FileHelper::createDirectory($dir);
-        $file = "$dir/og-$entryId-$hash.png";
-
-        if (!is_file($file)) {
-            file_put_contents($file, $generator->generate(
-                $card->title,
-                $card->label,
-                $this->assetContents($background),
-                $card->meta,
-                $card->description,
-                $card->backgroundColor,
-                $card->settings,
-            ));
-        }
-
-        $response = Craft::$app->getResponse();
-        $response->format = Response::FORMAT_RAW;
-        $response->headers->set('Content-Type', 'image/png');
-        $response->headers->set('Cache-Control', 'public, max-age=31536000, immutable');
-        $response->content = file_get_contents($file);
-
-        return $response;
+        // Versioned by `v` (and the field's `t`), so safe to keep, but only privately.
+        return $this->cardResponse($entry, 'private, max-age=31536000, immutable');
     }
 
     /**
-     * Streams a preview card for the plugin's settings page. Not cached, so a config
-     * change shows on reload.
-     *
-     * With no `section` / `type` handles it's placeholder text on the base settings.
-     * With them, it's an entry of that pair rendered for real — `entryId` if it's
-     * one of them, else the most recent. Its colour field, image and DefineCard
-     * handlers are what those overrides are usually about, and placeholder text
-     * would show none of them. If there's no such entry, it falls back to
-     * placeholder text with the pair's settings.
+     * Not cached, so a config change shows on reload. A section/type pair renders a
+     * real entry, since placeholder text wouldn't show its fields or DefineCard handlers.
      */
     public function actionSample(): Response
     {
@@ -102,7 +61,7 @@ class ImageController extends Controller
             $png = $generator->generate(
                 $card->title,
                 $card->label,
-                $this->assetContents($card->background),
+                $card->background,
                 $card->meta,
                 $card->description,
                 $card->backgroundColor,
@@ -112,7 +71,7 @@ class ImageController extends Controller
             $type = $typeHandle ? Craft::$app->getEntries()->getEntryTypeByHandle($typeHandle) : null;
             $png = $generator->generate(
                 Craft::t('placard', 'The quick brown fox jumps over the lazy dog'),
-                $type?->name ?? Craft::t('placard', 'Label'),
+                $type->name ?? Craft::t('placard', 'Label'),
                 null,
                 date('j F Y'),
                 Craft::t('placard', 'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'),
@@ -130,10 +89,6 @@ class ImageController extends Controller
         return $response;
     }
 
-    /**
-     * The entries the settings preview can pick from for a section / entry type
-     * pair, as JSON: the 10 most recently updated, newest first.
-     */
     public function actionSampleEntries(): Response
     {
         $this->requireAdmin(false);
@@ -152,12 +107,15 @@ class ImageController extends Controller
         return $this->asJson(['entries' => $entries]);
     }
 
-    /**
-     * An asset's URL as a share image (cropped to the card's size), for the Social
-     * Image field to preview a pick before the entry's saved. Logged-in only (the
-     * controller only lets `generate` through anonymously), and only for assets the
-     * user can view.
-     */
+    /** For the Social Image field to refresh its preview after an autosave. */
+    public function actionCardUrl(): Response
+    {
+        $this->requireAcceptsJson();
+
+        return $this->asJson(['url' => Plugin::getInstance()->getGenerator()->previewUrl($this->viewableEntry())]);
+    }
+
+    /** For the Social Image field to preview a pick before the entry's saved. */
     public function actionAssetUrl(): Response
     {
         $this->requireAcceptsJson();
@@ -170,17 +128,57 @@ class ImageController extends Controller
         return $this->asJson(['url' => Plugin::getInstance()->getGenerator()->assetShareUrl($asset)]);
     }
 
-    /** An asset's file contents, or null when there's no asset or it can't be read. */
-    private function assetContents(?Asset $asset): ?string
+    private function viewableEntry(): Entry
     {
-        if (!$asset) {
-            return null;
+        $entry = Entry::find()
+            ->id((int)$this->request->getRequiredQueryParam('entryId'))
+            ->siteId((int)$this->request->getQueryParam('siteId') ?: null)
+            ->drafts(null)
+            ->provisionalDrafts(null)
+            ->status(null)
+            ->one();
+
+        if (!$entry || !Craft::$app->getElements()->canView($entry)) {
+            throw new NotFoundHttpException('Entry not found.');
         }
 
-        try {
-            return $asset->getContents();
-        } catch (\Throwable) {
-            return null;
+        return $entry;
+    }
+
+    private function cardResponse(Entry $entry, string $cacheControl): Response
+    {
+        $generator = Plugin::getInstance()->getGenerator();
+        $card = $generator->defineCard($entry);
+
+        $background = $card->background;
+        $token = $entry->dateUpdated?->getTimestamp() ?? 0;
+        $bgKey = $background ? $background->id . ':' . ($background->dateModified?->getTimestamp() ?? 0) : '';
+        // Hash the settings too, so brand changes bust the cache as well as content changes.
+        $design = md5(serialize($card->settings->getAttributes()));
+        $hash = substr(md5("$card->title|$card->label|$card->description|$card->meta|$card->backgroundColor|$token|$bgKey|$design"), 0, 10);
+
+        $dir = Craft::$app->getPath()->getRuntimePath() . '/og-images';
+        FileHelper::createDirectory($dir);
+        $file = "$dir/og-$entry->id-$hash.png";
+
+        if (!is_file($file)) {
+            file_put_contents($file, $generator->generate(
+                $card->title,
+                $card->label,
+                $background,
+                $card->meta,
+                $card->description,
+                $card->backgroundColor,
+                $card->settings,
+            ));
         }
+
+        $response = Craft::$app->getResponse();
+        $response->format = Response::FORMAT_RAW;
+        $response->headers->set('Content-Type', 'image/png');
+        $response->headers->set('Cache-Control', $cacheControl);
+        $response->content = file_get_contents($file);
+
+        return $response;
     }
 }

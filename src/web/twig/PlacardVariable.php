@@ -7,9 +7,7 @@ use craft\elements\Entry;
 use craft\helpers\UrlHelper;
 
 /**
- * `craft.placard` template helpers.
- *
- * Typical usage in your <head>:
+ * `craft.placard`. Typical usage:
  *
  *   <meta property="og:image" content="{{ entry is defined
  *       ? craft.placard.shareImageUrl(entry)
@@ -17,37 +15,25 @@ use craft\helpers\UrlHelper;
  */
 class PlacardVariable
 {
-    /**
-     * Absolute URL to the generated card for an entry, cache-busted when the entry
-     * or its card settings change.
-     */
+    /** The generated card, cache-busted when the entry or its settings change. */
     public function url(Entry $entry): string
     {
         return Plugin::getInstance()->getGenerator()->cardUrl($entry);
     }
 
-    /**
-     * Absolute URL to the configured static brand fallback card.
-     */
+    /** The static fallback card, for pages with no entry. */
     public function default(): string
     {
         return UrlHelper::siteUrl(Plugin::getInstance()->getSettings()->defaultImagePath);
     }
 
-    /**
-     * The image that will actually be shared for an entry, for its `og:image`:
-     * whatever its Social Image field chooses, else the first image in the
-     * configured image fields (cropped to the card's size), else the generated card.
-     */
+    /** The Social Image field's choice, else the first configured image field's, else the card. */
     public function shareImageUrl(Entry $entry): string
     {
         return Plugin::getInstance()->getGenerator()->shareImageUrl($entry);
     }
 
-    /**
-     * Whether the entry shares an image of its own rather than the generated card
-     * — see {@see shareImageUrl()}. Safe to call on any value.
-     */
+    /** Whether the entry shares its own image rather than the card. Safe to call on any value. */
     public function entryHasImage(mixed $entry): bool
     {
         return $entry instanceof Entry && Plugin::getInstance()->getGenerator()->shareImage($entry) !== null;

@@ -1,0 +1,46 @@
+{% import '_includes/forms' as forms %}
+
+{{ forms.checkboxGroupField({
+    label: 'Sources'|t('placard'),
+    instructions: 'What editors can choose from. With just one, the dropdown is hidden and the field only shows the preview.'|t('placard'),
+    id: 'sources',
+    name: 'sources',
+    options: [
+        { value: 'card', label: 'Generated Card'|t('placard') },
+        { value: 'custom', label: 'Custom Image'|t('placard') },
+        { value: 'fields', label: 'Image Fields'|t('placard') },
+    ],
+    values: field.sources,
+    errors: field.getErrors('sources'),
+    required: true,
+}) }}
+
+{{ forms.checkboxSelectField({
+    label: 'Image fields'|t('placard'),
+    instructions: 'Which asset fields Image Fields lists. Only those in the entry’s own field layout appear.'|t('placard'),
+    id: 'imageFields',
+    name: 'imageFields',
+    options: assetFields|map(f => { value: f.uid, label: f.name|t('site') }),
+    values: field.imageFields,
+    showAllOption: true,
+}) }}
+
+{# Mirrors the editor's dropdown. #}
+{% set defaultOptions = [
+    { value: 'card', label: 'Generated Card'|t('placard') },
+    { value: 'custom', label: 'Custom Image'|t('placard') },
+] %}
+{% if assetFields|length %}
+    {% set defaultOptions = defaultOptions|merge([
+        { optgroup: (assetFields|length == 1 ? 'Image Field' : 'Image Fields')|t('placard') },
+    ]|merge(assetFields|map(f => { value: 'field:' ~ f.handle, label: f.name|t('site') }))) %}
+{% endif %}
+
+{{ forms.selectField({
+    label: 'Default'|t('placard'),
+    instructions: 'What a new entry starts on. If it isn’t one of the sources above, or the entry has no such field, the generated card is used, else the first image field, else a custom image.'|t('placard'),
+    id: 'defaultSource',
+    name: 'defaultSource',
+    options: defaultOptions,
+    value: field.defaultSource,
+}) }}

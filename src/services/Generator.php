@@ -21,18 +21,13 @@ use ImagickPixel;
 use yii\base\Component;
 
 /**
- * Renders social / OG cards with Imagick.
- *
- * One layout: label, title, description and meta line in a single stack over a solid
- * background, with an optional logo beside the label and an optional faint
- * background photo. {@see Settings} supplies where the stack sits and the brand:
- * colours, fonts and images.
+ * Renders social cards with Imagick: label, title, description and meta in one
+ * stack, with an optional logo beside the label and a faint background image.
  */
 class Generator extends Component
 {
     /**
-     * @event DefineCardEvent Fired to derive a card's title / label / description / meta /
-     * background from an entry. Handlers override the plugin's defaults.
+     * @event DefineCardEvent Lets projects override a card's text and background for an entry.
      */
     public const EVENT_DEFINE_CARD = 'defineCard';
 
@@ -45,16 +40,21 @@ class Generator extends Component
     }
 
     /**
-     * Builds a card spec for an entry: resolves the settings for its section and
-     * entry type, fills defaults (the text templates, background image, colour
-     * field) then fires {@see self::EVENT_DEFINE_CARD} so the project can
-     * customise it. Returns the resolved event; pass its `settings` to
-     * {@see generate()}.
+     * Resolves an entry's card and fires EVENT_DEFINE_CARD. Pass the result's
+     * `settings` to generate().
      */
     public function defineCard(Entry $entry): DefineCardEvent
     {
         $settings = $this->settings->forEntry($entry);
         $resolved = $this->withSettings($settings);
+
+        // Entry colours go into this card's copy of the settings, which is what draws it.
+        foreach (['label', 'title', 'description', 'meta'] as $element) {
+            $color = $resolved->entryColor($entry, $settings->{$element . 'ColorField'});
+            if ($color !== null) {
+                $settings->{$element . 'Color'} = $color;
+            }
+        }
 
         $event = new DefineCardEvent([
             'entry' => $entry,
@@ -64,7 +64,7 @@ class Generator extends Component
             'description' => $resolved->renderText($settings->description, $entry, 'description'),
             'meta' => $resolved->renderText($settings->meta, $entry, 'meta'),
             'background' => $resolved->backgroundImage($entry),
-            'backgroundColor' => $resolved->entryColor($entry),
+            'backgroundColor' => $resolved->entryColor($entry, $settings->backgroundColorField),
         ]);
 
         $this->trigger(self::EVENT_DEFINE_CARD, $event);
@@ -73,56 +73,59 @@ class Generator extends Component
     }
 
     /**
-     * Absolute URL to the generated card for an entry. The card is served as
-     * immutable, so anything that changes it has to change the URL: the `v` token
-     * covers the entry and the settings it's drawn with — otherwise a config change
-     * would leave browsers and social platforms on the old card.
+     * Absolute URL to an entry's card. Cards are served immutable, so `v` changes
+     * with the entry and its settings.
      */
     public function cardUrl(Entry $entry): string
     {
-        $settings = $this->settings->forEntry($entry);
-        $token = substr(md5(($entry->dateUpdated?->getTimestamp() ?? 0) . serialize($settings->getAttributes())), 0, 10);
-
-        return UrlHelper::siteUrl('og/' . $entry->id . '.png', ['v' => $token]);
+        return UrlHelper::siteUrl('og/' . $entry->id . '.png', ['v' => $this->cardToken($entry)]);
     }
 
     /**
-     * The image an entry shares, or null when that's the generated card.
-     *
-     * Follows the entry's Social Image field, if its layout has one: the card, one
-     * of its image fields, or a picked image. Anything that gives no image — and
-     * entries without the field — falls back to `auto`: the first image in the
-     * configured `imageFieldHandles`, else the card.
+     * Card URL for CP previews, which also serves drafts and disabled entries to
+     * users who can view them. cardUrl() only serves live entries.
+     */
+    public function previewUrl(Entry $entry): string
+    {
+        return UrlHelper::actionUrl('placard/image/preview', [
+            'entryId' => $entry->id,
+            'siteId' => $entry->siteId,
+            'v' => $this->cardToken($entry),
+        ]);
+    }
+
+    private function cardToken(Entry $entry): string
+    {
+        $settings = $this->settings->forEntry($entry);
+
+        return substr(md5(($entry->dateUpdated?->getTimestamp() ?? 0) . serialize($settings->getAttributes())), 0, 10);
+    }
+
+    /**
+     * The image an entry shares, or null for the generated card. Follows the Social
+     * Image field if the layout has one (a choice with no image gives the card),
+     * else the first image in `imageFieldHandles`.
      */
     public function shareImage(Entry $entry): ?Asset
     {
         $value = $this->socialImageValue($entry);
 
-        if ($value?->source === SocialImageValue::CARD) {
-            return null;
+        if ($value === null) {
+            return $this->firstImage($entry, $this->settings->forEntry($entry)->imageFieldHandles);
         }
 
-        if ($value?->source === SocialImageValue::CUSTOM && $value->assetId) {
-            $asset = Asset::find()->id($value->assetId)->kind('image')->one();
-            if ($asset) {
-                return $asset;
-            }
+        if ($value->source === SocialImageValue::CUSTOM && $value->assetId) {
+            return Asset::find()->id($value->assetId)->kind('image')->one();
         }
 
-        if ($handle = $value?->getFieldHandle()) {
-            $asset = $this->firstImage($entry, [$handle]);
-            if ($asset) {
-                return $asset;
-            }
+        if ($handle = $value->getFieldHandle()) {
+            return $this->firstImage($entry, [$handle]);
         }
 
-        return $this->firstImage($entry, $this->settings->forEntry($entry)->imageFieldHandles);
+        return null;
     }
 
-    /**
-     * Absolute URL of the image an entry shares: {@see shareImage()} cropped to the
-     * card's size, or the generated card.
-     */
+    /** Absolute URL of the image an entry shares, cropped to card size, or the card itself. */
     public function shareImageUrl(Entry $entry): string
     {
         $asset = $this->shareImage($entry);
@@ -130,39 +133,35 @@ class Generator extends Component
         return ($asset ? $this->assetShareUrl($asset) : null) ?? $this->cardUrl($entry);
     }
 
-    /** An asset as a share image: cropped to the card's 1200×630. */
+    /** An asset's URL cropped to the card's size. */
     public function assetShareUrl(Asset $asset): ?string
     {
         return $asset->getUrl(['width' => Settings::WIDTH, 'height' => Settings::HEIGHT, 'mode' => 'crop']) ?: null;
     }
 
-    /** The entry's Social Image field value, if its layout has one. */
     private function socialImageValue(Entry $entry): ?SocialImageValue
     {
         foreach ($entry->getFieldLayout()?->getCustomFields() ?? [] as $field) {
             if ($field instanceof SocialImage) {
                 $value = $entry->getFieldValue($field->handle);
 
-                return $value instanceof SocialImageValue ? $value : null;
+                // A source the field no longer offers falls back to its default.
+                return $value instanceof SocialImageValue ? $field->effectiveValue($value, $entry) : null;
             }
         }
 
         return null;
     }
 
-    /**
-     * The most recently updated entry of a section / entry type pair, or null when
-     * neither is given or there isn't one. Used by the settings-page preview.
-     */
+    /** Most recently updated entry of a section and/or entry type, for the settings preview. */
     public function sampleEntry(?string $sectionHandle, ?string $typeHandle): ?Entry
     {
         return $this->sampleEntryQuery($sectionHandle, $typeHandle)?->one();
     }
 
     /**
-     * Entries of a section / entry type pair, most recently updated first, for the
-     * settings-page preview's entry picker. An entry type with no section is looked
-     * for anywhere, which takes in nested entries. Null when neither is given.
+     * Entries for the settings preview's picker, newest first. A type without a
+     * section also matches nested entries. Null when neither is given.
      */
     public function sampleEntryQuery(?string $sectionHandle, ?string $typeHandle): ?EntryQuery
     {
@@ -182,20 +181,21 @@ class Generator extends Component
     }
 
     /**
-     * Returns the rendered card as PNG binary, drawn with the given settings — an
-     * entry's resolved ones, from {@see defineCard()} — or the base settings.
+     * Renders the card as PNG binary, with an entry's settings from defineCard() or
+     * the base ones. `$background` is an asset (cropped around its focal point) or
+     * raw image contents.
      */
     public function generate(
         string $title,
         ?string $label = null,
-        ?string $backgroundBlob = null,
+        Asset|string|null $background = null,
         ?string $meta = null,
         ?string $description = null,
         ?string $backgroundColor = null,
         ?Settings $settings = null,
     ): string {
         if ($settings !== null && $settings !== $this->settings) {
-            return $this->withSettings($settings)->generate($title, $label, $backgroundBlob, $meta, $description, $backgroundColor);
+            return $this->withSettings($settings)->generate($title, $label, $background, $meta, $description, $backgroundColor);
         }
 
         $s = $this->settings;
@@ -214,23 +214,31 @@ class Generator extends Component
         $img->newImage($w, $h, $this->color($backgroundColor));
         $img->setImageFormat('png');
 
-        // The fixed image is the fallback for when the entry gives none.
+        $backgroundBlob = $background;
+        $focalPoint = null;
+        if ($background instanceof Asset) {
+            try {
+                $backgroundBlob = $background->getContents();
+            } catch (\Throwable) {
+                $backgroundBlob = null;
+            }
+            $focalPoint = $background->getFocalPoint();
+        }
+
         if ($backgroundBlob === null || $backgroundBlob === '') {
             $backgroundBlob = $this->fileContents($s->backgroundImagePath);
+            $focalPoint = null;
         }
 
-        // Optional background image: cover-fit, grayscale, faint, behind everything.
         if ($backgroundBlob !== null && $backgroundBlob !== '') {
-            $this->compositeBackground($img, $backgroundBlob, $backgroundColor);
+            $this->compositeBackground($img, $backgroundBlob, $backgroundColor, is_array($focalPoint) ? $focalPoint : null);
         }
 
-        // The logo isn't anchored on its own — it rides alongside the label, so it's
-        // prepared here and drawn with the label's row.
+        // Drawn in the label's row rather than anchored on its own.
         $logo = $s->showLogo ? $this->loadLogo(Settings::LOGO_SIZE) : null;
 
-        // Every element is wrapped into a block of lines, and the blocks flow in one
-        // stack. Stacking is what keeps the layout collision-free: the blocks whose
-        // height varies with the text push each other along instead of overlapping.
+        // Elements flow in one stack, so variable-height blocks push each other
+        // along rather than overlap.
         $fonts = [
             'label' => $labelFont,
             'title' => $displayFont,
@@ -248,16 +256,14 @@ class Generator extends Component
                 $style['size'] = $s->titleSize > 0 ? $s->titleSize : $style['size'];
                 $style['uppercase'] = $s->titleUppercase;
             }
-            // A hidden element is treated as empty, so the stack closes up the same way.
+            // Hidden elements count as empty, so the stack closes up.
             $text = $s->{'show' . ucfirst($element)}
                 ? $this->prepText($texts[$element] ?? null, $style['uppercase'])
                 : '';
             $blockLogo = ($logo !== null && $element === 'label') ? $logo : null;
 
             if ($text === '') {
-                // The label isn't drawing, but the logo beside it still should — an
-                // empty or hidden label shouldn't take the brand mark with it. It keeps the
-                // label's slot in the stack, to itself.
+                // An empty or hidden label still leaves the logo its slot.
                 if ($blockLogo === null) {
                     continue;
                 }
@@ -280,8 +286,6 @@ class Generator extends Component
 
             $font = $fonts[$element];
             if ($element === 'title') {
-                // Only the title shrinks to fit its line budget; the rest wrap at the
-                // size they're given.
                 [$lines, $size, $lineHeight] = $this->fitTitle($img, $font, $text, $maxWidth, $style['size'], $style['maxLines']);
             } else {
                 $size = $style['size'];
@@ -295,13 +299,10 @@ class Generator extends Component
             }
 
             $height = count($lines) * $lineHeight;
-            // The empty space inside the block's box, above its top edge and below
-            // its bottom one. A line box starts a full font size above its baseline,
-            // and letters only reach ~70% of that, so positioning by the box would sit
-            // text low. With `caps` the edges are the cap height and the last
-            // baseline: descenders hang below, and text sits at the same height on
-            // every card. With `ink` they're what these lines' letters actually reach
-            // (negative below when a descender runs past the box).
+            // Empty space between the line box and the visible text, since letters reach
+            // only ~70% of the font size. `caps` trims to cap height and last baseline
+            // (consistent across cards), `ink` to the actual glyphs (negative below
+            // when a descender overhangs).
             $lastBaseline = $size + (count($lines) - 1) * $lineHeight;
             if ($s->textEdges === 'ink') {
                 $inkTop = max(0.0, $size - $this->inkExtent($img, $font, $size, $lines[0])[0]);
@@ -312,10 +313,9 @@ class Generator extends Component
             }
 
             if ($blockLogo !== null) {
-                // The logo is centred on the block; if it reaches past the text, the
-                // block's visible edge is the logo's.
+                // The logo is centred on the block, so if it's taller its edge is the
+                // visible one (the inset goes negative).
                 $logoInset = ($height - $blockLogo->getImageHeight()) / 2;
-                // Negative when the logo is taller than the text and overhangs it.
                 $inkTop = min($inkTop, $logoInset);
                 $inkBottom = min($inkBottom, $logoInset);
             }
@@ -333,11 +333,8 @@ class Generator extends Component
             ];
         }
 
-        // One stack, laid out top to bottom. `between` pushes the ends to the padding
-        // edges and shares the slack out evenly; the rest anchor the block as a whole
-        // and keep a fixed gap. The stack is placed by its visible extent — the first
-        // block's cap top to the last block's baseline — not its line boxes, which
-        // carry empty space above the caps and would sit the text low.
+        // `between` spreads the slack between the padded ends, the rest keep a fixed
+        // gap. Placed by visible extent, not line boxes, which would sit text low.
         if ($blocks !== []) {
             $padY = Settings::PADDING;
             $gap = Settings::ELEMENT_GAP;
@@ -351,13 +348,13 @@ class Generator extends Component
             }
 
             $visible = $visibleContent + $gap * (count($blocks) - 1);
-            // Config values skip validation, so anything unrecognised falls back to
-            // the default rather than throwing.
+            // Config values skip validation, so unknown positions fall back to bottom.
             $top = match ($s->position) {
                 'top', 'between' => (float)$padY,
                 'middle' => ($h - $visible) / 2,
                 default => $h - $padY - $visible,
-            } - $trimTop;
+            };
+            $top -= $trimTop;
 
             foreach ($blocks as $block) {
                 $this->drawBlock($img, $block, $top);
@@ -373,13 +370,9 @@ class Generator extends Component
         return $out;
     }
 
-    // -- Data helpers ---------------------------------------------------------
+    // -- Data helpers
 
-    /**
-     * A copy of this generator that draws with other settings. Every helper reads
-     * `$this->settings`, so swapping the whole generator keeps one card's settings
-     * from leaking into the next.
-     */
+    /** A clone that draws with other settings, so one card's settings never leak into the next. */
     private function withSettings(Settings $settings): self
     {
         $generator = clone $this;
@@ -389,9 +382,8 @@ class Generator extends Component
     }
 
     /**
-     * The entry's background image: the first asset in the background image field,
-     * else (when the switch is on) its share image, else null — leaving the fixed
-     * `backgroundImagePath` to {@see generate()}.
+     * The background field's image, else (with `useImageAsBackground`) the share
+     * image. Null leaves generate() to use `backgroundImagePath`.
      */
     private function backgroundImage(Entry $entry): ?Asset
     {
@@ -406,8 +398,7 @@ class Generator extends Component
     }
 
     /**
-     * First asset found among the given asset field handles, or null. Missing
-     * fields are skipped.
+     * First asset across the given fields. Missing fields are skipped.
      *
      * @param string[] $handles
      */
@@ -430,11 +421,8 @@ class Generator extends Component
     }
 
     /**
-     * Renders one element's text template against the entry, as plain text: tags
-     * stripped (so rich text fields work), entities decoded, whitespace collapsed.
-     * Null when the template is empty or renders nothing. A template that throws —
-     * a misspelt field, say — is logged and leaves the element blank rather than
-     * taking the card down.
+     * Renders a text template against the entry as plain text, so rich text works.
+     * A template that throws is logged and leaves the element blank.
      */
     private function renderText(string $template, Entry $entry, string $element): ?string
     {
@@ -457,14 +445,12 @@ class Generator extends Component
     }
 
     /**
-     * The canvas colour from the entry's {@see Settings::$backgroundColorField}, or
-     * null to fall back to the configured colour. Takes a Color field, or any field
-     * whose value is a hex string; anything else is ignored rather than handed to
-     * Imagick, which would throw on it and take the card down.
+     * A colour from the entry's field, or null for the configured one. Only Color
+     * fields and hex strings pass, as Imagick throws on anything else.
      */
-    private function entryColor(Entry $entry): ?string
+    private function entryColor(Entry $entry, string $handle): ?string
     {
-        $handle = trim($this->settings->backgroundColorField);
+        $handle = trim($handle);
         if ($handle === '') {
             return null;
         }
@@ -484,14 +470,11 @@ class Generator extends Component
         return preg_match('/^#?([0-9a-f]{3}){1,2}$/i', $value) ? $value : null;
     }
 
-    // -- Title fitting (shrink-to-lines + balance / clamp) --------------------
+    // -- Text wrapping
 
     /**
-     * Wraps the title at a fixed large size. Lines that fit within maxLines are
-     * balanced to even lengths (à la `text-wrap: balance`); anything longer is
-     * clamped to maxLines with a trailing ellipsis rather than scaled down.
-     *
-     * Returns [lines, fontSize, lineHeight].
+     * Wraps the title at its set size, balanced like `text-wrap: balance` when it
+     * fits in $maxLines, else clamped with an ellipsis. Returns [lines, size, lineHeight].
      */
     private function fitTitle(Imagick $img, string $font, string $text, float $maxWidth, int $size, int $maxLines): array
     {
@@ -514,10 +497,6 @@ class Generator extends Component
         return [$lines, $size, $size * Settings::LINE_HEIGHT];
     }
 
-    /**
-     * Hard-trims a single line to characters + ellipsis if it still overflows
-     * (e.g. one unbreakable word longer than the canvas).
-     */
     private function truncateToWidth(Imagick $img, ImagickDraw $draw, string $line, float $maxWidth): string
     {
         if ($img->queryFontMetrics($draw, $line)['textWidth'] <= $maxWidth) {
@@ -533,10 +512,7 @@ class Generator extends Component
         return rtrim(implode('', $chars)) . '…';
     }
 
-    /**
-     * Balances $text across exactly $targetLines lines by finding the narrowest
-     * width that still wraps to that many lines — which evens out their lengths.
-     */
+    /** Evens out line lengths by finding the narrowest width that still wraps to $targetLines. */
     private function balanceLines(Imagick $img, ImagickDraw $draw, string $text, float $maxWidth, int $targetLines): array
     {
         if ($targetLines <= 1) {
@@ -562,9 +538,6 @@ class Generator extends Component
         return $best;
     }
 
-    /**
-     * Greedy word-wrap against a pixel width limit.
-     */
     private function greedyWrap(Imagick $img, ImagickDraw $draw, string $text, float $widthLimit): array
     {
         $words = preg_split('/\s+/', $text) ?: [];
@@ -590,10 +563,7 @@ class Generator extends Component
         return $lines;
     }
 
-    /**
-     * Clamps to $maxLines lines, ending the last line with an ellipsis and
-     * dropping trailing words until it fits.
-     */
+    /** Wraps to at most $maxLines, dropping words from the last until it fits with an ellipsis. */
     private function clampLines(Imagick $img, ImagickDraw $draw, string $text, float $maxWidth, int $maxLines): array
     {
         $lines = $this->greedyWrap($img, $draw, $text, $maxWidth);
@@ -615,18 +585,19 @@ class Generator extends Component
         return $kept;
     }
 
-    // -- Image helpers --------------------------------------------------------
+    // -- Image helpers
 
     /**
-     * Composites a cover-fitted, grayscale, faint background over the base colour.
-     * Any failure is swallowed so the card still renders.
+     * Composites the background image over the base colour. Failures are swallowed
+     * so the card still renders.
+     *
+     * @param array{x: float, y: float}|null $focalPoint Fractions of the image, null for the middle.
      */
-    private function compositeBackground(Imagick $img, string $blob, string $backgroundColor): void
+    private function compositeBackground(Imagick $img, string $blob, string $backgroundColor, ?array $focalPoint = null): void
     {
         $w = $this->settings->width;
         $h = $this->settings->height;
-        // The box the image fits into: the canvas, less the padding. Config values
-        // skip validation, so a padding that would leave no box is capped.
+        // Config values skip validation, so cap padding that would leave no box.
         $pad = min(max(0, $this->settings->backgroundPadding), (int)floor((min($w, $h) - 1) / 2));
         $boxW = $w - $pad * 2;
         $boxH = $h - $pad * 2;
@@ -636,27 +607,22 @@ class Generator extends Component
             $bg->readImageBlob($blob);
             $bg->setImageBackgroundColor($this->color($backgroundColor));
 
-            // `contain` fits the whole image inside the box, scaling up or down,
-            // and centres it on the canvas colour. Anything else (`cover`, or an
-            // unrecognised config value) centre-crops to fill the box.
+            // Anything but `contain` (including unknown config values) crops to fill
+            // the box around the focal point, as Craft's crop transforms do.
             if ($this->settings->backgroundFit === 'contain') {
                 $bg->resizeImage($boxW, $boxH, Imagick::FILTER_LANCZOS, 1, true);
             } else {
-                $bg->cropThumbnailImage($boxW, $boxH);
+                $this->coverCrop($bg, $boxW, $boxH, $focalPoint);
             }
 
-            // Optionally desaturate, then drop to the configured opacity. No blur:
-            // at this opacity it changed little, and a full-canvas gaussian cost
-            // ~14s a card — which the settings preview, re-rendering uncached on
-            // every poll, turned into a pile-up that starved everything else.
+            // No blur: it barely showed at this opacity and cost ~14s a card, which
+            // piled up under the settings preview's uncached re-renders.
             if ($this->settings->backgroundGreyscale) {
                 $bg->modulateImage(100, 0, 100);
             }
             $bg->setImageAlphaChannel(Imagick::ALPHACHANNEL_OPAQUE);
 
-            // Round the corners of the image as placed (the fitted image for
-            // `contain`, the box for `cover`), before the opacity drop so both
-            // apply to the same alpha.
+            // Before the opacity drop, so both act on the same alpha.
             if ($this->settings->backgroundRadius > 0) {
                 $this->roundCorners($bg, $this->settings->backgroundRadius);
             }
@@ -676,9 +642,28 @@ class Generator extends Component
     }
 
     /**
-     * Masks an image to a rounded rectangle. The radius is capped at half the
-     * shorter side, where the corners meet.
+     * Scales to cover the box, then crops around the focal point, clamped to the image.
+     *
+     * @param array{x: float, y: float}|null $focalPoint
      */
+    private function coverCrop(Imagick $image, int $boxW, int $boxH, ?array $focalPoint): void
+    {
+        $scale = max($boxW / $image->getImageWidth(), $boxH / $image->getImageHeight());
+        $scaledW = max($boxW, (int)ceil($image->getImageWidth() * $scale));
+        $scaledH = max($boxH, (int)ceil($image->getImageHeight() * $scale));
+        $image->resizeImage($scaledW, $scaledH, Imagick::FILTER_LANCZOS, 1);
+
+        $fx = (float)($focalPoint['x'] ?? 0.5);
+        $fy = (float)($focalPoint['y'] ?? 0.5);
+        $x = (int)round(min(max($fx * $scaledW - $boxW / 2, 0), $scaledW - $boxW));
+        $y = (int)round(min(max($fy * $scaledH - $boxH / 2, 0), $scaledH - $boxH));
+
+        $image->cropImage($boxW, $boxH, $x, $y);
+        // cropImage keeps the old canvas offset, which compositing would honour.
+        $image->setImagePage(0, 0, 0, 0);
+    }
+
+    /** Masks an image to a rounded rectangle, radius capped at half the shorter side. */
     private function roundCorners(Imagick $image, int $radius): void
     {
         $iw = $image->getImageWidth();
@@ -697,11 +682,7 @@ class Generator extends Component
         $mask->destroy();
     }
 
-    /**
-     * Loads the logo, resized to the given height. Returns null when there's no
-     * logo configured, the file is missing, or it can't be read — the card is still
-     * worth rendering without it.
-     */
+    /** The logo at the given height, or null if it's missing or unreadable. */
     private function loadLogo(int $height): ?Imagick
     {
         $path = $this->path($this->settings->logoPath);
@@ -716,15 +697,13 @@ class Generator extends Component
 
             return $logo;
         } catch (\Throwable $e) {
-            // Don't let a bad logo take the card down, but don't swallow it either:
-            // a silent null here once hid a bug in our own positioning code.
+            // Logged, not swallowed: a silent null here once hid a positioning bug.
             Craft::warning("Placard couldn't read the logo at $path: {$e->getMessage()}", __METHOD__);
 
             return null;
         }
     }
 
-    /** Uppercases + trims a nullable text value per the element's setting. */
     private function prepText(?string $text, bool $uppercase): string
     {
         $text = (string)$text;
@@ -733,11 +712,8 @@ class Generator extends Component
     }
 
     /**
-     * Draws one block at a given top edge, with its logo alongside if it has one.
-     *
-     * The logo and the text are laid out as a single row — the pair is positioned
-     * according to {@see Settings::$align}, so the text is inset to make room rather
-     * than the logo being anchored separately and hoped to miss.
+     * Draws a block at a top edge. A logo and its text are aligned as one row, with
+     * the text inset to make room.
      *
      * @param array{font:string, lines:string[], style:array, size:float, lineHeight:float, height:float, logo:?Imagick} $block
      */
@@ -757,11 +733,10 @@ class Generator extends Component
         $draw->setFillColor($this->color($block['style']['color'] ?: '#ffffff'));
 
         $logoWidth = $logo?->getImageWidth() ?? 0;
-        // No text beside it means no gap to hold open.
         $gap = ($logo !== null && $block['lines'] !== []) ? Settings::ELEMENT_GAP : 0;
         $textWidth = $this->widestLine($img, $draw, $block['lines']);
 
-        // Where the text anchors, and where the logo goes relative to it.
+        // [text anchor x, text alignment, logo x]
         [$x, $align, $logoX] = match ($this->settings->align) {
             'center' => [
                 ($w + $logoWidth + $gap) / 2,
@@ -781,8 +756,7 @@ class Generator extends Component
         };
 
         if ($logo !== null) {
-            // Centred on the block, so it reads as sitting with the text rather than
-            // hanging off its first line.
+            // Centred on the block, not the first line.
             $img->compositeImage(
                 $logo,
                 Imagick::COMPOSITE_OVER,
@@ -800,9 +774,8 @@ class Generator extends Component
     }
 
     /**
-     * Height of a capital above the baseline, for a font at a size — measured from
-     * an "H", since fonts don't agree on it (Inter's is 0.72 of the size, Retail
-     * Display's 0.69). Falls back to the usual 0.7 if the font won't measure.
+     * Cap height measured from an "H", since fonts differ (Inter 0.72 of the size,
+     * Retail Display 0.69). Falls back to 0.7.
      */
     private function capHeight(Imagick $img, string $font, float $size): float
     {
@@ -816,9 +789,8 @@ class Generator extends Component
     }
 
     /**
-     * How far a line's letters reach above and below the baseline: [above, below],
-     * both positive. Measured a character at a time, because Imagick's bounding box
-     * for a whole string only describes its last glyph.
+     * How far a line's glyphs reach [above, below] the baseline, both positive.
+     * Measured per character, as Imagick's string bounding box covers only the last glyph.
      *
      * @return array{0: float, 1: float}
      */
@@ -840,7 +812,6 @@ class Generator extends Component
         return [$above > 0 ? $above : $this->capHeight($img, $font, $size), $below];
     }
 
-    /** Width of the longest line in a block, used to lay a logo out beside it. */
     private function widestLine(Imagick $img, ImagickDraw $draw, array $lines): float
     {
         $widest = 0.0;
@@ -851,11 +822,7 @@ class Generator extends Component
         return $widest;
     }
 
-    /**
-     * Builds an ImagickPixel from a configured colour, tolerating bare hex — the CP
-     * colour fields submit `000000`, not `#000000`, which Imagick can't parse. Named
-     * colours and `#rgb`/`#rrggbb` pass through unchanged; empties fall back to black.
-     */
+    /** Adds the `#` the CP colour fields omit, as Imagick can't parse bare hex. Empty means black. */
     private function color(string $value): ImagickPixel
     {
         $value = trim($value);
@@ -878,29 +845,19 @@ class Generator extends Component
         return $draw;
     }
 
-    // -- Path resolution ------------------------------------------------------
+    // -- Path resolution
 
-    /**
-     * Display font: the configured path, or the bundled Inter Bold fallback (no
-     * commercial display font ships with the plugin).
-     */
     private function displayFont(): string
     {
         return $this->font($this->settings->displayFontPath, 'Inter-Bold.ttf');
     }
 
-    /**
-     * Resolves a configured font path, falling back to a bundled resource font.
-     */
     private function font(string $configured, string $fallback): string
     {
         return $this->path($configured) ?? $this->resource("fonts/$fallback");
     }
 
-    /**
-     * Reads a configured image path, or null when it's empty, missing or unreadable.
-     * A bad path shouldn't cost you the whole card.
-     */
+    /** A configured file's contents, or null when it's empty, missing or unreadable. */
     private function fileContents(string $configured): ?string
     {
         $path = $this->path($configured);
@@ -918,9 +875,7 @@ class Generator extends Component
         return $blob;
     }
 
-    /**
-     * Parses env vars + Craft aliases in a configured path. Returns null when empty.
-     */
+    /** Parses env vars and aliases in a configured path. Null when empty. */
     private function path(string $configured): ?string
     {
         $configured = trim($configured);

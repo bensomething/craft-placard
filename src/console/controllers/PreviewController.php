@@ -10,13 +10,10 @@ use yii\console\Controller;
 use yii\console\ExitCode;
 
 /**
- * Renders sample cards to files for visual iteration.
+ * Writes cards to storage/runtime/og-images-preview/.
  *
- *   php craft placard/preview <entryId>       # a real entry's resolved card
- *   php craft placard/preview --title="…"     # a dummy card from flags
+ *   php craft placard/preview <entryId>
  *   php craft placard/preview --title="…" --image=/path/to/photo.jpg
- *
- * Output goes to storage/runtime/og-images-preview/.
  */
 class PreviewController extends Controller
 {
@@ -47,15 +44,8 @@ class PreviewController extends Controller
             }
 
             $card = $generator->defineCard($entry);
-            $blob = null;
-            if ($card->background) {
-                try {
-                    $blob = $card->background->getContents();
-                } catch (\Throwable) {
-                }
-            }
-
-            $png = $generator->generate($card->title, $card->label, $blob, $card->meta, $card->description, $card->backgroundColor, $card->settings);
+            // The asset itself, not its contents, so a cover crop honours its focal point.
+            $png = $generator->generate($card->title, $card->label, $card->background, $card->meta, $card->description, $card->backgroundColor, $card->settings);
             $file = "$dir/entry-$entryId.png";
             file_put_contents($file, $png);
             $this->stdout("Wrote $file\n", Console::FG_GREEN);

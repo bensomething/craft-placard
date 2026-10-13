@@ -9,10 +9,12 @@ use bensomething\placard\web\twig\PlacardVariable;
 use Craft;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
+use craft\events\DefineRulesEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\helpers\Html;
 use craft\helpers\UrlHelper;
+use craft\models\FieldLayout;
 use craft\services\Fields;
 use craft\web\Controller;
 use craft\web\twig\variables\CraftVariable;
@@ -20,24 +22,12 @@ use craft\web\UrlManager;
 use yii\base\Event;
 
 /**
- * Placard plugin.
- *
- * Generates social / OG cards with Imagick for entries that have no share image,
- * and exposes a `craft.placard` variable plus an `og/<entryId>.png` route that
- * streams the generated PNG (cached under storage/runtime).
- *
- * The layout is fixed. The brand (palette, fonts, logo, background) is set in
- * `config/placard.php`, and how a card's title / label / description / meta /
- * background are derived from an entry via the {@see Generator::EVENT_DEFINE_CARD}
- * event. Nothing here is tied to a particular site.
- *
  * @property-read Generator $generator
  * @property-read Settings $settings
  * @method Settings getSettings()
  */
 class Plugin extends BasePlugin
 {
-    // The settings page is a preview of the card, not a form — see getSettingsResponse().
     public bool $hasCpSettings = true;
     public bool $hasReadOnlyCpSettings = true;
 
@@ -49,34 +39,50 @@ class Plugin extends BasePlugin
             'generator' => Generator::class,
         ]);
 
-        // Route: /og/<entryId>.png -> streams the generated card. The .png suffix
-        // keeps the URL recognisable as an image to crawlers / scrapers.
+        // The .png suffix keeps the URL recognisable as an image to crawlers.
         Event::on(
             UrlManager::class,
             UrlManager::EVENT_REGISTER_SITE_URL_RULES,
-            static function (RegisterUrlRulesEvent $event): void {
+            static function(RegisterUrlRulesEvent $event): void {
                 $event->rules['og/<entryId:\d+>.png'] = 'placard/image/generate';
             }
         );
 
-        // craft.placard.* helpers for templates.
         Event::on(
             CraftVariable::class,
             CraftVariable::EVENT_INIT,
-            static function (Event $event): void {
+            static function(Event $event): void {
                 /** @var CraftVariable $variable */
                 $variable = $event->sender;
                 $variable->set('placard', PlacardVariable::class);
             }
         );
 
-        // "Social Image" field: choose, per entry, which image is shared, with the
-        // card preview alongside.
         Event::on(
             Fields::class,
             Fields::EVENT_REGISTER_FIELD_TYPES,
-            static function (RegisterComponentTypesEvent $event): void {
+            static function(RegisterComponentTypesEvent $event): void {
                 $event->types[] = SocialImage::class;
+            }
+        );
+
+        // isMultiInstance() only stops the same field going in twice. This stops two
+        // different ones, as only the first would be used (see Generator::socialImageValue()).
+        Event::on(
+            FieldLayout::class,
+            Model::EVENT_DEFINE_RULES,
+            static function(DefineRulesEvent $event): void {
+                /** @var FieldLayout $layout */
+                $layout = $event->sender;
+                $event->rules[] = [['customFields'], static function() use ($layout): void {
+                    $count = count(array_filter(
+                        $layout->getCustomFields(),
+                        static fn($field) => $field instanceof SocialImage,
+                    ));
+                    if ($count > 1) {
+                        $layout->addError('customFields', Craft::t('placard', 'Only one Social Image field can be added to a field layout.'));
+                    }
+                }, 'skipOnEmpty' => false];
             }
         );
     }
@@ -92,10 +98,8 @@ class Plugin extends BasePlugin
     }
 
     /**
-     * Placard is configured in config/placard.php, so its settings page only shows
-     * the card that config produces. It's a CP screen rather than Craft's settings
-     * form: there's nothing to save, and a Save button would copy the config file's
-     * values into project config.
+     * A preview-only CP screen, not Craft's settings form. A Save button would copy
+     * config/placard.php's values into project config.
      */
     public function getSettingsResponse(): mixed
     {
@@ -108,8 +112,7 @@ class Plugin extends BasePlugin
                 ['label' => Craft::t('app', 'Settings'), 'url' => UrlHelper::cpUrl('settings')],
                 ['label' => Craft::t('app', 'Plugins'), 'url' => UrlHelper::cpUrl('settings/plugins')],
             ])
-            // Re-renders the preview in place (see _settings.twig), so a config change
-            // can be checked without reloading the page.
+            // Re-renders the preview in place (see _settings.twig).
             ->additionalButtonsHtml(Html::button(
                 Html::tag('div', Craft::t('placard', 'Refresh'), ['class' => 'label'])
                 . Html::tag('div', '', ['class' => ['spinner', 'spinner-absolute']]),
@@ -120,7 +123,6 @@ class Plugin extends BasePlugin
                     'data' => ['icon' => 'refresh'],
                 ],
             ))
-            // The card sits in the details sidebar, as entry pages show theirs.
             ->metaSidebarTemplate('placard/_sidebar')
             ->contentTemplate('placard/_settings', [
                 'settings' => $this->getSettings(),
@@ -131,9 +133,8 @@ class Plugin extends BasePlugin
     }
 
     /**
-     * The settings preview's dropdown: one option per section / entry type pair that
-     * has overrides, plus entry types with overrides that no section uses (nested
-     * entries). The entries to preview are fetched when one's picked.
+     * Section/entry type pairs with overrides, plus overridden entry types no section
+     * uses (nested entries).
      *
      * @return array<int, array{label:string, section:string, type:string}>
      */
@@ -174,8 +175,7 @@ class Plugin extends BasePlugin
     }
 
     /**
-     * Override handles in the config that don't match a section or entry type. They
-     * do nothing, so a typo would otherwise fail silently.
+     * Override handles that match no section or entry type, so typos don't fail silently.
      *
      * @return string[]
      */
@@ -199,7 +199,6 @@ class Plugin extends BasePlugin
         return $unknown;
     }
 
-    /** Nothing on the page is editable, so it reads the same with admin changes off. */
     public function getReadOnlySettingsResponse(): mixed
     {
         return $this->getSettingsResponse();

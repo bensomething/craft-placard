@@ -3,15 +3,11 @@
 ## Unreleased
 
 ### Added
-- Initial release: generates social / OG cards with Imagick for Craft entries that have no share image, served from `/og/<entryId>.png` and cached under `storage/runtime/og-images`.
-- One layout: label, title, description and meta in a single stack on a 1200×630 canvas, with an optional logo beside the label and an optional background image. `position` places the stack (`top`, `middle`, `bottom` or `between`) and `align` aligns it (`left`, `center` or `right`). The stack is placed by its capitals (cap height to last baseline) rather than its line boxes, so centred text sits centred; `textEdges` set to `ink` places it by exactly what each card's letters reach instead. `titleMaxLines` sets how many lines the title can wrap to (3 by default), and `showLabel`, `showTitle`, `showDescription`, `showMeta` and `showLogo` turn elements off. `titleUppercase` sets the title in capitals or as written, and `titleSize` its font size.
-- `backgroundColorField` takes the canvas colour from a Color field on the entry, falling back to `backgroundColor`. `backgroundImageField` does the same for the background image, from an asset field, falling back to the share image (with `useImageAsBackground`) and then `backgroundImagePath`. And `backgroundFit` sets whether the background image covers the card or is contained within it, `backgroundPadding` insets it (both fits work inside the inset) and `backgroundRadius` rounds its corners.
-- Configured from `config/placard.php`: background and per-element text colours, a font per element (falling back to bundled Inter), logo, background image, image field handles and a static fallback image.
-- `title`, `label`, `description` and `meta` set what each element says, as object templates rendered against the entry (`{summary}`, fixed text, `{postDate|date("j F Y")}`, fallbacks, relations). HTML is stripped, and a template that errors leaves just that element blank. Title and label default to the entry title and entry type name; description and meta are empty until given a template. Meta is the small line under the description, for a date, byline, read time or anything else.
-- `sections` and `entryTypes` override any setting (except `defaultImagePath`) for entries in a section or of an entry type, with the entry type winning. The settings preview has a dropdown for each overridden pair, rendering its most recent entry, and flags handles that don't match anything.
-- `Generator::EVENT_DEFINE_CARD` to set a card's title, label, description, meta, background and colour per project. Handlers also get the card's resolved `settings`, to change for that card alone.
-- `craft.placard.url()`'s `v` parameter changes with the card's settings as well as the entry, so a config change gets a fresh card from browsers and social platforms rather than the year-cached old one.
-- `craft.placard.url()`, `entryHasImage()`, `shareImageUrl()` and `default()` template helpers.
-- The plugin's settings page previews the card the current config produces, with placeholder text and a safe-area toggle. It's read-only, so it also works with `allowAdminChanges` off.
-- A **Social Image** field: editors choose, per entry, which image is shared (Automatic, the generated card, one of the entry's image fields, or a custom image), with a preview underneath that updates as they choose, before saving. `craft.placard.shareImageUrl()` follows it. Both its preview and the settings preview have a **Preview** button that opens the card in a lightbox.
-- `php craft placard/preview` to render a real entry's card, or a dummy one, to a file.
+- Initial release.
+- Social cards generated with Imagick, served from `/og/<entryId>.png`.
+- Configured in `config/placard.php`, with overrides per section and entry type.
+- Card text from object templates, and colours and background image from entry fields.
+- `DefineCard` event to customise cards in PHP.
+- Social Image field, to choose per entry which image is shared, with a live preview.
+- `craft.placard` template helpers.
+- Settings page preview and `php craft placard/preview` console command.
