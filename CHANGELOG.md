@@ -1,6 +1,6 @@
 # Release Notes for Placard
 
-## Unreleased
+## 1.0.0-beta.1 - 2026-10-13
 
 ### Added
 - Initial release.
