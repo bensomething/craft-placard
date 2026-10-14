@@ -1,6 +1,6 @@
 # Release Notes for Placard
 
-## Unreleased
+## 1.0.0-beta.2 - 2026-10-14
 
 ### Added
 - `fontPath` setting, to set the font for every element at once. The per-element font settings override it.
