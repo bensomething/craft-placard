@@ -145,6 +145,7 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `labelSize`, `descriptionSize`, `metaSize` | `28`, `32`, `28` | Text sizes in px |
 | `logoHeight` | `48` | Logo height in px. Its width follows its proportions |
 | `padding` | `80` | Inset for the text in px, as CSS shorthand: one value, `[vertical, horizontal]`, `[top, horizontal, bottom]` or `[top, right, bottom, left]`. Text wraps at the width between the sides, and `center` centres within them |
+| `border` | `0` | Border widths in px, as CSS shorthand like `padding`. `[8, 0, 0, 0]` is a bar along the top. Drawn over the background image, and the text sits inside it |
 | `gap` | `24` | Space below each element in px, between line boxes, so the visible space also takes in line height and descenders. With `between` it's a minimum |
 | `labelGap`, `titleGap`, `descriptionGap` | none | Space below one element, over `gap`. The last element shown has none below it |
 | `titleUppercase` | `true` | Set the title in capitals |
@@ -152,7 +153,8 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `title`, `label`, `description`, `meta` | `{title}`, `{type.name}`, empty, empty | Object templates, see *Card text* |
 | `backgroundColor` | `#000000` | Canvas colour |
 | `labelColor`, `titleColor`, `descriptionColor`, `metaColor` | `#a3a3a3`, `#ffffff`, `#a3a3a3`, `#a3a3a3` | Text colours |
-| `backgroundColorField`, `labelColorField`, `titleColorField`, `descriptionColorField`, `metaColorField` | none | A Color field (or hex text field) to take that colour from, falling back to the setting above |
+| `borderColor` | `#ffffff` | Border colour |
+| `backgroundColorField`, `labelColorField`, `titleColorField`, `descriptionColorField`, `metaColorField`, `borderColorField` | none | A Color field (or hex text field) to take that colour from, falling back to the setting above |
 | `fontPath` | Inter | Font for every element. Unset, each element uses the bundled Inter in its own weight (Bold title, Medium label, Regular description and meta) |
 | `titleFontPath`, `labelFontPath`, `descriptionFontPath`, `metaFontPath` | none | One element's font, over `fontPath` |
 | `logoPath` | none | PNG or SVG drawn beside the label |

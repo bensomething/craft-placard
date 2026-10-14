@@ -51,7 +51,7 @@ class Generator extends Component
         $resolved = $this->withSettings($settings);
 
         // Entry colours go into this card's copy of the settings, which is what draws it.
-        foreach (['label', 'title', 'description', 'meta'] as $element) {
+        foreach (['label', 'title', 'description', 'meta', 'border'] as $element) {
             $color = $resolved->entryColor($entry, $settings->{$element . 'ColorField'});
             if ($color !== null) {
                 $settings->{$element . 'Color'} = $color;
@@ -203,7 +203,7 @@ class Generator extends Component
         $s = $this->settings;
         $w = $s->width;
         $h = $s->height;
-        $pad = $s->paddingBox();
+        $pad = $s->contentBox();
         $maxWidth = max(1, $w - $pad['left'] - $pad['right']);
 
         $backgroundColor = trim((string)$backgroundColor) ?: $s->backgroundColor;
@@ -231,6 +231,8 @@ class Generator extends Component
         if ($backgroundBlob !== null && $backgroundBlob !== '') {
             $this->compositeBackground($img, $backgroundBlob, $backgroundColor, is_array($focalPoint) ? $focalPoint : null);
         }
+
+        $this->drawBorder($img);
 
         // Drawn in the label's row rather than anchored on its own.
         $logo = $s->showLogo ? $this->loadLogo($s->logoHeight > 0 ? $s->logoHeight : Settings::LOGO_SIZE) : null;
@@ -687,6 +689,34 @@ class Generator extends Component
      * blur at these strengths. gaussianBlurImage() at full size took 14s a card at
      * 12px, and piled up under the settings preview's uncached re-renders.
      */
+    /** Each side's border as a solid bar, over the background image. */
+    private function drawBorder(Imagick $img): void
+    {
+        $border = $this->settings->borderBox();
+        if (max($border) === 0) {
+            return;
+        }
+
+        $w = $img->getImageWidth();
+        $h = $img->getImageHeight();
+        $draw = new ImagickDraw();
+        $draw->setFillColor($this->color($this->settings->borderColor));
+
+        foreach ([
+            [0, 0, $w, $border['top']],
+            [0, $h - $border['bottom'], $w, $h],
+            [0, 0, $border['left'], $h],
+            [$w - $border['right'], 0, $w, $h],
+        ] as [$x1, $y1, $x2, $y2]) {
+            // Rectangle ends are inclusive.
+            if ($x2 > $x1 && $y2 > $y1) {
+                $draw->rectangle($x1, $y1, $x2 - 1, $y2 - 1);
+            }
+        }
+
+        $img->drawImage($draw);
+    }
+
     private function blur(Imagick $image, int $sigma): void
     {
         $iw = $image->getImageWidth();
@@ -889,7 +919,7 @@ class Generator extends Component
         }
 
         $w = $this->settings->width;
-        $pad = $this->settings->paddingBox();
+        $pad = $this->settings->contentBox();
 
         $draw = new ImagickDraw();
         $draw->setFont($block['font']);

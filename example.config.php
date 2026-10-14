@@ -20,6 +20,9 @@ return [
     'textEdges' => 'caps',
     // Inset for the text in px, as CSS shorthand: 80, [60, 100] or [60, 100, 80, 100].
     'padding' => 80,
+    // Border widths in px, as CSS shorthand like padding: [8, 0, 0, 0] is a bar along
+    // the top. The text sits inside the border.
+    'border' => 0,
     // Space below each element in px. labelGap, titleGap and descriptionGap override
     // gap for one element; null uses gap.
     'gap' => 24,
@@ -51,6 +54,8 @@ return [
     'descriptionColorField' => '',
     'metaColor' => '#a3a3a3',
     'metaColorField' => '',
+    'borderColor' => '#ffffff',
+    'borderColorField' => '',
 
     // Fonts. fontPath sets every element, and each *FontPath overrides it for one.
     // Empty falls back to the bundled Inter.

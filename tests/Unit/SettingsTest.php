@@ -130,6 +130,32 @@ class SettingsTest extends TestCase
         $this->assertFalse((new Settings(['padding' => [1, 2, 3, 4, 5]]))->validate());
     }
 
+    public function testBorderReadsAsCssShorthand(): void
+    {
+        $box = fn(mixed $border): array => array_values((new Settings(['border' => $border]))->borderBox());
+
+        $this->assertSame([0, 0, 0, 0], $box(0));
+        $this->assertSame([8, 0, 0, 0], $box([8, 0, 0, 0]));
+        $this->assertSame([4, 2, 4, 2], $box([4, 2]));
+        // Unreadable values fall back to no border, not the padding default.
+        $this->assertSame([0, 0, 0, 0], $box([1, 2, 3, 4, 5]));
+        $this->assertSame([8, 0, 0, 0], $box([8, 'x', 0, 0]));
+    }
+
+    public function testTextSitsInsideTheBorder(): void
+    {
+        $settings = new Settings(['padding' => [60, 80], 'border' => [8, 0, 0, 4]]);
+
+        $this->assertSame(['top' => 68, 'right' => 80, 'bottom' => 60, 'left' => 84], $settings->contentBox());
+    }
+
+    public function testValidatesBorder(): void
+    {
+        $this->assertTrue((new Settings(['border' => [8, 0, 0, 0]]))->validate());
+        $this->assertFalse((new Settings(['border' => -1]))->validate());
+        $this->assertFalse((new Settings(['border' => []]))->validate());
+    }
+
     public function testCanvasIsFixed(): void
     {
         $settings = new Settings();

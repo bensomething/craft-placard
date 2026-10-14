@@ -105,6 +105,14 @@ class Settings extends Model
     public int|array $padding = 80;
 
     /**
+     * Border widths in px, as CSS shorthand like {@see $padding}. Drawn over the
+     * background image, with the text inset by it as well as by the padding.
+     *
+     * @var int|array<array-key, mixed>
+     */
+    public int|array $border = 0;
+
+    /**
      * Space below each element in px, measured between line boxes, so the visible
      * space also takes in line height and descenders. With `between` these are
      * minimums, and the leftover space is shared equally between them.
@@ -144,11 +152,14 @@ class Settings extends Model
     public string $descriptionColor = '#a3a3a3';
     public string $metaColor = '#a3a3a3';
 
+    public string $borderColor = '#ffffff';
+
     /** As {@see $backgroundColorField}, falling back to the matching colour above. */
     public string $labelColorField = '';
     public string $titleColorField = '';
     public string $descriptionColorField = '';
     public string $metaColorField = '';
+    public string $borderColorField = '';
 
     // -- Assets ---------------------------------------------------------------
 
@@ -280,21 +291,32 @@ class Settings extends Model
      */
     public function paddingBox(): array
     {
-        $values = array_values((array)$this->padding);
-        // Config values skip validation, so anything unreadable falls back to the default.
-        if ($values === [] || count($values) > 4) {
-            $values = [80];
-        }
-        $values = array_map(fn(mixed $value): int => is_numeric($value) ? max(0, (int)$value) : 80, $values);
+        return $this->sides($this->padding, 80);
+    }
 
-        [$top, $right, $bottom, $left] = match (count($values)) {
-            1 => [$values[0], $values[0], $values[0], $values[0]],
-            2 => [$values[0], $values[1], $values[0], $values[1]],
-            3 => [$values[0], $values[1], $values[2], $values[1]],
-            default => $values,
-        };
+    /**
+     * {@see $border} as one value per side.
+     *
+     * @return array{top: int, right: int, bottom: int, left: int}
+     */
+    public function borderBox(): array
+    {
+        return $this->sides($this->border, 0);
+    }
 
-        return ['top' => $top, 'right' => $right, 'bottom' => $bottom, 'left' => $left];
+    /**
+     * Where the text sits: the border and padding together, as in CSS.
+     *
+     * @return array{top: int, right: int, bottom: int, left: int}
+     */
+    public function contentBox(): array
+    {
+        $padding = $this->paddingBox();
+        $border = $this->borderBox();
+
+        return array_map(fn(string $side): int => $padding[$side] + $border[$side], [
+            'top' => 'top', 'right' => 'right', 'bottom' => 'bottom', 'left' => 'left',
+        ]);
     }
 
     /** The space below an element. */
@@ -311,7 +333,7 @@ class Settings extends Model
         return max(0, $own ?? $this->gap);
     }
 
-    public function validatePadding(string $attribute): void
+    public function validateSides(string $attribute): void
     {
         $values = (array)$this->$attribute;
         $valid = $values !== [] && count($values) <= 4;
@@ -320,7 +342,7 @@ class Settings extends Model
         }
 
         if (!$valid) {
-            $this->addError($attribute, 'Padding must be a non-negative number, or an array of one to four.');
+            $this->addError($attribute, ucfirst($attribute) . ' must be a non-negative number, or an array of one to four.');
         }
     }
 
@@ -345,9 +367,33 @@ class Settings extends Model
             [['backgroundPadding', 'backgroundRadius', 'backgroundBlur', 'gap', 'labelGap', 'titleGap', 'descriptionGap'], 'integer', 'min' => 0],
             ['backgroundFit', 'in', 'range' => self::BACKGROUND_FITS],
             ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
-            ['padding', 'validatePadding', 'skipOnEmpty' => false],
+            [['padding', 'border'], 'validateSides', 'skipOnEmpty' => false],
             [['backgroundOpacity'], 'number', 'min' => 0, 'max' => 1],
-            [['backgroundColor', 'labelColor', 'titleColor', 'descriptionColor', 'metaColor'], 'string'],
+            [['backgroundColor', 'labelColor', 'titleColor', 'descriptionColor', 'metaColor', 'borderColor'], 'string'],
         ];
+    }
+
+    /**
+     * CSS-style shorthand as one value per side. Config values skip validation,
+     * so anything unreadable falls back.
+     *
+     * @return array{top: int, right: int, bottom: int, left: int}
+     */
+    private function sides(mixed $shorthand, int $fallback): array
+    {
+        $values = array_values((array)$shorthand);
+        if ($values === [] || count($values) > 4) {
+            $values = [$fallback];
+        }
+        $values = array_map(fn(mixed $value): int => is_numeric($value) ? max(0, (int)$value) : $fallback, $values);
+
+        [$top, $right, $bottom, $left] = match (count($values)) {
+            1 => [$values[0], $values[0], $values[0], $values[0]],
+            2 => [$values[0], $values[1], $values[0], $values[1]],
+            3 => [$values[0], $values[1], $values[2], $values[1]],
+            default => $values,
+        };
+
+        return ['top' => $top, 'right' => $right, 'bottom' => $bottom, 'left' => $left];
     }
 }
