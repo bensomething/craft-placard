@@ -1,6 +1,6 @@
 # Release Notes for Placard
 
-## Unreleased
+## 1.0.0-beta.3 - 2026-10-14
 
 ### Added
 - `padding` setting, for the inset around the text, as one value or CSS-style per side.
