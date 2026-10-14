@@ -1,6 +1,6 @@
 # Release Notes for Placard
 
-## Unreleased
+## 1.0.0-beta.5 - 2026-10-14
 
 ### Added
 - `imageFieldHandles`, `backgroundImageField` and the `*ColorField` settings take nested paths like `seo.seoImage`, to read a field inside a Matrix or Content Block field. The first nested entry with a value is used.
