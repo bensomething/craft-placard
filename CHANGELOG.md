@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- `padding` setting, for the inset around the text, as one value or CSS-style per side.
 - `gap` setting, for the space between elements.
 - `labelGap`, `titleGap` and `descriptionGap` settings, for the space below one element.
 

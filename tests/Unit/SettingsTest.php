@@ -107,6 +107,26 @@ class SettingsTest extends TestCase
         $this->assertFalse($settings->validate());
     }
 
+    public function testPaddingReadsAsCssShorthand(): void
+    {
+        $box = fn(mixed $padding): array => array_values((new Settings(['padding' => $padding]))->paddingBox());
+
+        $this->assertSame([80, 80, 80, 80], $box(80));
+        $this->assertSame([60, 100, 60, 100], $box([60, 100]));
+        $this->assertSame([10, 20, 30, 20], $box([10, 20, 30]));
+        $this->assertSame([10, 20, 30, 40], $box([10, 20, 30, 40]));
+        $this->assertSame([0, 80, 80, 80], $box([-5, 'x', 80, 80]));
+        $this->assertSame([80, 80, 80, 80], $box([1, 2, 3, 4, 5]));
+    }
+
+    public function testValidatesPadding(): void
+    {
+        $this->assertTrue((new Settings(['padding' => [60, 100]]))->validate());
+        $this->assertFalse((new Settings(['padding' => [60, -1]]))->validate());
+        $this->assertFalse((new Settings(['padding' => []]))->validate());
+        $this->assertFalse((new Settings(['padding' => [1, 2, 3, 4, 5]]))->validate());
+    }
+
     public function testCanvasIsFixed(): void
     {
         $settings = new Settings();

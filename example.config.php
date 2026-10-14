@@ -13,6 +13,8 @@ return [
     'titleSize' => 116, // px on the 1200×630 card
     // caps: placed by cap height to last baseline. ink: by what the letters reach.
     'textEdges' => 'caps',
+    // Inset for the text in px, as CSS shorthand: 80, [60, 100] or [60, 100, 80, 100].
+    'padding' => 80,
     // Space below each element in px. labelGap, titleGap and descriptionGap override
     // gap for one element; null uses gap.
     'gap' => 24,

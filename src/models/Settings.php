@@ -56,8 +56,6 @@ class Settings extends Model
         'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion',
     ];
 
-    public const PADDING = 80;
-
     /** Between the logo and the label. */
     public const LOGO_GAP = 24;
 
@@ -87,6 +85,15 @@ class Settings extends Model
 
     /** In pixels. Long titles wrap and clamp rather than shrink to fit. */
     public int $titleSize = 116;
+
+    /**
+     * The inset text sits within, in px, as CSS shorthand: one value for every side,
+     * [vertical, horizontal], [top, horizontal, bottom] or [top, right, bottom, left].
+     * Text wraps at the width left between the sides.
+     *
+     * @var int|array<array-key, mixed>
+     */
+    public int|array $padding = 80;
 
     /**
      * Space below each element in px, measured between line boxes, so the visible
@@ -257,6 +264,30 @@ class Settings extends Model
         return $own ?: $this->fontPath;
     }
 
+    /**
+     * {@see $padding} as one value per side.
+     *
+     * @return array{top: int, right: int, bottom: int, left: int}
+     */
+    public function paddingBox(): array
+    {
+        $values = array_values((array)$this->padding);
+        // Config values skip validation, so anything unreadable falls back to the default.
+        if ($values === [] || count($values) > 4) {
+            $values = [80];
+        }
+        $values = array_map(fn(mixed $value): int => is_numeric($value) ? max(0, (int)$value) : 80, $values);
+
+        [$top, $right, $bottom, $left] = match (count($values)) {
+            1 => [$values[0], $values[0], $values[0], $values[0]],
+            2 => [$values[0], $values[1], $values[0], $values[1]],
+            3 => [$values[0], $values[1], $values[2], $values[1]],
+            default => $values,
+        };
+
+        return ['top' => $top, 'right' => $right, 'bottom' => $bottom, 'left' => $left];
+    }
+
     /** The space below an element. */
     public function gapAfter(string $element): int
     {
@@ -269,6 +300,19 @@ class Settings extends Model
 
         // Config values skip validation, so hold the floor here.
         return max(0, $own ?? $this->gap);
+    }
+
+    public function validatePadding(string $attribute): void
+    {
+        $values = (array)$this->$attribute;
+        $valid = $values !== [] && count($values) <= 4;
+        foreach ($values as $value) {
+            $valid = $valid && is_int($value) && $value >= 0;
+        }
+
+        if (!$valid) {
+            $this->addError($attribute, 'Padding must be a non-negative number, or an array of one to four.');
+        }
     }
 
     public function getWidth(): int
@@ -292,6 +336,7 @@ class Settings extends Model
             [['backgroundPadding', 'backgroundRadius', 'backgroundBlur', 'gap', 'labelGap', 'titleGap', 'descriptionGap'], 'integer', 'min' => 0],
             ['backgroundFit', 'in', 'range' => self::BACKGROUND_FITS],
             ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
+            ['padding', 'validatePadding', 'skipOnEmpty' => false],
             [['backgroundOpacity'], 'number', 'min' => 0, 'max' => 1],
             [['backgroundColor', 'labelColor', 'titleColor', 'descriptionColor', 'metaColor'], 'string'],
         ];

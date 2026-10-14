@@ -201,7 +201,8 @@ class Generator extends Component
         $s = $this->settings;
         $w = $s->width;
         $h = $s->height;
-        $maxWidth = $w - (Settings::PADDING * 2);
+        $pad = $s->paddingBox();
+        $maxWidth = max(1, $w - $pad['left'] - $pad['right']);
 
         $backgroundColor = trim((string)$backgroundColor) ?: $s->backgroundColor;
 
@@ -332,7 +333,6 @@ class Generator extends Component
         // the slack between the padded ends equally across the gaps. Placed by visible
         // extent, not line boxes, which would sit text low.
         if ($blocks !== []) {
-            $padY = Settings::PADDING;
             $gaps = array_slice(array_column($blocks, 'gap'), 0, -1);
             $content = array_sum(array_column($blocks, 'height'));
             $trimTop = $blocks[0]['inkTop'];
@@ -340,16 +340,16 @@ class Generator extends Component
             $visibleContent = $content - $trimTop - $trimBottom;
 
             if ($s->position === 'between' && $gaps !== []) {
-                $slack = max(0, ($h - ($padY * 2) - $visibleContent - array_sum($gaps)) / count($gaps));
+                $slack = max(0, ($h - $pad['top'] - $pad['bottom'] - $visibleContent - array_sum($gaps)) / count($gaps));
                 $gaps = array_map(fn(float $gap): float => $gap + $slack, $gaps);
             }
 
             $visible = $visibleContent + array_sum($gaps);
             // Config values skip validation, so unknown positions fall back to bottom.
             $top = match ($s->position) {
-                'top', 'between' => (float)$padY,
-                'middle' => ($h - $visible) / 2,
-                default => $h - $padY - $visible,
+                'top', 'between' => (float)$pad['top'],
+                'middle' => $pad['top'] + ($h - $pad['top'] - $pad['bottom'] - $visible) / 2,
+                default => $h - $pad['bottom'] - $visible,
             };
             $top -= $trimTop;
 
@@ -762,7 +762,7 @@ class Generator extends Component
         }
 
         $w = $this->settings->width;
-        $padX = Settings::PADDING;
+        $pad = $this->settings->paddingBox();
 
         $draw = new ImagickDraw();
         $draw->setFont($block['font']);
@@ -772,23 +772,25 @@ class Generator extends Component
         $logoWidth = $logo?->getImageWidth() ?? 0;
         $gap = ($logo !== null && $block['lines'] !== []) ? Settings::LOGO_GAP : 0;
         $textWidth = $this->widestLine($img, $draw, $block['lines']);
+        // Centred within the padding, so uneven sides shift it, as in CSS.
+        $centre = $pad['left'] + ($w - $pad['left'] - $pad['right'] + $logoWidth + $gap) / 2;
 
         // [text anchor x, text alignment, logo x]
         [$x, $align, $logoX] = match ($this->settings->align) {
             'center' => [
-                ($w + $logoWidth + $gap) / 2,
+                $centre,
                 Imagick::ALIGN_CENTER,
-                ($w + $logoWidth + $gap) / 2 - $textWidth / 2 - $gap - $logoWidth,
+                $centre - $textWidth / 2 - $gap - $logoWidth,
             ],
             'right' => [
-                (float)($w - $padX),
+                (float)($w - $pad['right']),
                 Imagick::ALIGN_RIGHT,
-                $w - $padX - $textWidth - $gap - $logoWidth,
+                $w - $pad['right'] - $textWidth - $gap - $logoWidth,
             ],
             default => [
-                (float)($padX + $logoWidth + $gap),
+                (float)($pad['left'] + $logoWidth + $gap),
                 Imagick::ALIGN_LEFT,
-                (float)$padX,
+                (float)$pad['left'],
             ],
         };
 
