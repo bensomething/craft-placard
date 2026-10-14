@@ -9,9 +9,8 @@ use craft\helpers\UrlHelper;
 /**
  * `craft.placard`. Typical usage:
  *
- *   <meta property="og:image" content="{{ entry is defined
- *       ? craft.placard.shareImageUrl(entry)
- *       : craft.placard.default() }}">
+ *   {% set ogImage = craft.placard.shareImageUrl(entry ?? null) %}
+ *   {% if ogImage %}<meta property="og:image" content="{{ ogImage }}">{% endif %}
  */
 class PlacardVariable
 {
@@ -21,15 +20,24 @@ class PlacardVariable
         return Plugin::getInstance()->getGenerator()->cardUrl($entry);
     }
 
-    /** The static fallback card, for pages with no entry. */
-    public function default(): string
+    /** The static fallback image, for pages with no entry. Null when `defaultImagePath` isn't set. */
+    public function default(): ?string
     {
-        return UrlHelper::siteUrl(Plugin::getInstance()->getSettings()->defaultImagePath);
+        $path = trim(Plugin::getInstance()->getSettings()->defaultImagePath);
+
+        return $path !== '' ? UrlHelper::siteUrl($path) : null;
     }
 
-    /** The Social Image field's choice, else the first configured image field's, else the card. */
-    public function shareImageUrl(Entry $entry): string
+    /**
+     * The Social Image field's choice, else the first configured image field's, else the card.
+     * Anything that isn't an entry gets default(). Safe to call on any value.
+     */
+    public function shareImageUrl(mixed $entry = null): ?string
     {
+        if (!$entry instanceof Entry) {
+            return $this->default();
+        }
+
         return Plugin::getInstance()->getGenerator()->shareImageUrl($entry);
     }
 

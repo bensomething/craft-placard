@@ -47,17 +47,18 @@ No commercial font is bundled. Inter (SIL OFL) is the default, so point `display
 ## Templates
 
 ```twig
-<meta property="og:image" content="{{ entry is defined
-    ? craft.placard.shareImageUrl(entry)
-    : craft.placard.default() }}">
+{% set ogImage = craft.placard.shareImageUrl(entry ?? null) %}
+{% if ogImage %}
+    <meta property="og:image" content="{{ ogImage }}">
+{% endif %}
 ```
 
 | Helper | Returns |
 |---|---|
-| `shareImageUrl(entry)` | The image the entry shares (its Social Image field's choice, else the first image in `imageFieldHandles`, else the card) |
+| `shareImageUrl(entry)` | The image the entry shares (its Social Image field's choice, else the first image in `imageFieldHandles`, else the card). Anything that isn't an entry gets `default()` |
 | `entryHasImage(entry)` | Whether that's one of the entry's own images |
 | `url(entry)` | The card's URL. Only live entries are served, so drafts can't be read from it |
-| `default()` | `defaultImagePath`, for pages with no entry |
+| `default()` | `defaultImagePath`, for pages with no entry, or null when it isn't set |
 
 ## Social Image field
 
