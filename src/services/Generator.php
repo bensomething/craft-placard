@@ -271,6 +271,7 @@ class Generator extends Component
                     'lineHeight' => 0.0,
                     'height' => (float)$blockLogo->getImageHeight(),
                     'logo' => $blockLogo,
+                    'logoTop' => 0.0,
                     'inkTop' => 0.0,
                     'inkBottom' => 0.0,
                     'gap' => (float)$s->gapAfter($element),
@@ -308,12 +309,17 @@ class Generator extends Component
                 $inkBottom = max(0.0, $height - $lastBaseline);
             }
 
+            $logoTop = 0.0;
             if ($blockLogo !== null) {
-                // The logo is centred on the block, so if it's taller its edge is the
-                // visible one (the inset goes negative).
-                $logoInset = ($height - $blockLogo->getImageHeight()) / 2;
-                $inkTop = min($inkTop, $logoInset);
-                $inkBottom = min($inkBottom, $logoInset);
+                // Centred on the text from cap height to last baseline, as the line
+                // box has space above the caps that would sit the text low. If the
+                // logo reaches further, its edge is the visible one (the inset goes
+                // negative).
+                $logoHeight = $blockLogo->getImageHeight();
+                $capTop = $size - $this->capHeight($img, $font, $size);
+                $logoTop = ($capTop + $lastBaseline - $logoHeight) / 2;
+                $inkTop = min($inkTop, $logoTop);
+                $inkBottom = min($inkBottom, $height - $logoTop - $logoHeight);
             }
 
             $blocks[] = [
@@ -324,6 +330,7 @@ class Generator extends Component
                 'lineHeight' => $lineHeight,
                 'height' => $height,
                 'logo' => $blockLogo,
+                'logoTop' => $logoTop,
                 'inkTop' => $inkTop,
                 'inkBottom' => $inkBottom,
                 'gap' => (float)$s->gapAfter($element),
@@ -837,7 +844,7 @@ class Generator extends Component
      * Draws a block at a top edge. A logo and its text are aligned as one row, with
      * the text inset to make room.
      *
-     * @param array{font:string, lines:string[], style:array, size:float, lineHeight:float, height:float, logo:?Imagick} $block
+     * @param array{font:string, lines:string[], style:array, size:float, lineHeight:float, height:float, logo:?Imagick, logoTop:float} $block
      */
     private function drawBlock(Imagick $img, array $block, float $top): void
     {
@@ -880,12 +887,11 @@ class Generator extends Component
         };
 
         if ($logo !== null) {
-            // Centred on the block, not the first line.
             $img->compositeImage(
                 $logo,
                 Imagick::COMPOSITE_OVER,
                 (int)round($logoX),
-                (int)round($top + ($block['height'] - $logo->getImageHeight()) / 2),
+                (int)round($top + $block['logoTop']),
             );
         }
 

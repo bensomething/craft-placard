@@ -1,5 +1,10 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Fixed
+- The logo is centred on the label's capitals rather than its line box, which sat the label low beside it.
+
 ## 1.0.0-beta.4 - 2026-10-14
 
 ### Added
