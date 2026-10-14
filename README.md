@@ -60,6 +60,23 @@ No commercial font is bundled. Inter (SIL OFL) is the default, so point `display
 | `url(entry)` | The card's URL. Only live entries are served, so drafts can't be read from it |
 | `default()` | `defaultImagePath`, for pages with no entry, or null when it isn't set |
 
+### With SEOmatic
+
+SEOmatic's image source settings only list Assets fields, so they can't read the Social Image field. Pass the URL to SEOmatic from your layout instead:
+
+```twig
+{% set ogImage = craft.placard.shareImageUrl(entry ?? null) %}
+{% if ogImage %}
+    {% do seomatic.meta.setAttributes({
+        seoImage: ogImage,
+        ogImage: ogImage,
+        twitterImage: ogImage,
+    }) %}
+{% endif %}
+```
+
+This overrides the section's SEOmatic settings. SEOmatic doesn't transform an image given as a URL, and cards are already 1200×630. Use the `summary_large_image` Twitter card so they show at full size.
+
 ## Social Image field
 
 Lets editors choose what each entry shares (the generated card, a custom image, or one of the entry's image fields) with a preview that updates as they edit. Its settings choose which sources are offered, which image fields are listed and the default. A layout can only hold one, and entries without URLs show a note instead.
