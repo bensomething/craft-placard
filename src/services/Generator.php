@@ -271,6 +271,7 @@ class Generator extends Component
                     'logo' => $blockLogo,
                     'inkTop' => 0.0,
                     'inkBottom' => 0.0,
+                    'gap' => (float)$s->gapAfter($element),
                 ];
                 $blocks[] = $block;
 
@@ -323,24 +324,27 @@ class Generator extends Component
                 'logo' => $blockLogo,
                 'inkTop' => $inkTop,
                 'inkBottom' => $inkBottom,
+                'gap' => (float)$s->gapAfter($element),
             ];
         }
 
-        // `between` spreads the slack between the padded ends, the rest keep a fixed
-        // gap. Placed by visible extent, not line boxes, which would sit text low.
+        // Each element keeps its own gap below it, bar the last. `between` also shares
+        // the slack between the padded ends equally across the gaps. Placed by visible
+        // extent, not line boxes, which would sit text low.
         if ($blocks !== []) {
             $padY = Settings::PADDING;
-            $gap = Settings::ELEMENT_GAP;
+            $gaps = array_slice(array_column($blocks, 'gap'), 0, -1);
             $content = array_sum(array_column($blocks, 'height'));
             $trimTop = $blocks[0]['inkTop'];
             $trimBottom = $blocks[count($blocks) - 1]['inkBottom'];
             $visibleContent = $content - $trimTop - $trimBottom;
 
-            if ($s->position === 'between' && count($blocks) > 1) {
-                $gap = max($gap, ($h - ($padY * 2) - $visibleContent) / (count($blocks) - 1));
+            if ($s->position === 'between' && $gaps !== []) {
+                $slack = max(0, ($h - ($padY * 2) - $visibleContent - array_sum($gaps)) / count($gaps));
+                $gaps = array_map(fn(float $gap): float => $gap + $slack, $gaps);
             }
 
-            $visible = $visibleContent + $gap * (count($blocks) - 1);
+            $visible = $visibleContent + array_sum($gaps);
             // Config values skip validation, so unknown positions fall back to bottom.
             $top = match ($s->position) {
                 'top', 'between' => (float)$padY,
@@ -349,9 +353,9 @@ class Generator extends Component
             };
             $top -= $trimTop;
 
-            foreach ($blocks as $block) {
+            foreach ($blocks as $i => $block) {
                 $this->drawBlock($img, $block, $top);
-                $top += $block['height'] + $gap;
+                $top += $block['height'] + ($gaps[$i] ?? 0);
             }
         }
 
@@ -766,7 +770,7 @@ class Generator extends Component
         $draw->setFillColor($this->color($block['style']['color'] ?: '#ffffff'));
 
         $logoWidth = $logo?->getImageWidth() ?? 0;
-        $gap = ($logo !== null && $block['lines'] !== []) ? Settings::ELEMENT_GAP : 0;
+        $gap = ($logo !== null && $block['lines'] !== []) ? Settings::LOGO_GAP : 0;
         $textWidth = $this->widestLine($img, $draw, $block['lines']);
 
         // [text anchor x, text alignment, logo x]

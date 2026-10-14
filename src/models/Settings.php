@@ -58,8 +58,8 @@ class Settings extends Model
 
     public const PADDING = 80;
 
-    /** Also the gap between the logo and the label. */
-    public const ELEMENT_GAP = 24;
+    /** Between the logo and the label. */
+    public const LOGO_GAP = 24;
 
     /** A multiple of the font size. */
     public const LINE_HEIGHT = 1.02;
@@ -87,6 +87,18 @@ class Settings extends Model
 
     /** In pixels. Long titles wrap and clamp rather than shrink to fit. */
     public int $titleSize = 116;
+
+    /**
+     * Space below each element in px, measured between line boxes, so the visible
+     * space also takes in line height and descenders. With `between` these are
+     * minimums, and the leftover space is shared equally between them.
+     */
+    public int $gap = 24;
+
+    /** The space below one element, over {@see $gap}. Null uses $gap. Meta is always last, so it has none. */
+    public ?int $labelGap = null;
+    public ?int $titleGap = null;
+    public ?int $descriptionGap = null;
 
     /** Hiding the label keeps the logo, which has its own {@see $showLogo}. */
     public bool $showLabel = true;
@@ -245,6 +257,20 @@ class Settings extends Model
         return $own ?: $this->fontPath;
     }
 
+    /** The space below an element. */
+    public function gapAfter(string $element): int
+    {
+        $own = match ($element) {
+            'label' => $this->labelGap,
+            'title' => $this->titleGap,
+            'description' => $this->descriptionGap,
+            default => null,
+        };
+
+        // Config values skip validation, so hold the floor here.
+        return max(0, $own ?? $this->gap);
+    }
+
     public function getWidth(): int
     {
         return self::WIDTH;
@@ -263,7 +289,7 @@ class Settings extends Model
             ['textEdges', 'in', 'range' => self::TEXT_EDGES],
             ['titleMaxLines', 'integer', 'min' => 1],
             ['titleSize', 'integer', 'min' => 1],
-            [['backgroundPadding', 'backgroundRadius', 'backgroundBlur'], 'integer', 'min' => 0],
+            [['backgroundPadding', 'backgroundRadius', 'backgroundBlur', 'gap', 'labelGap', 'titleGap', 'descriptionGap'], 'integer', 'min' => 0],
             ['backgroundFit', 'in', 'range' => self::BACKGROUND_FITS],
             ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
             [['backgroundOpacity'], 'number', 'min' => 0, 'max' => 1],

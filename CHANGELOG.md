@@ -1,5 +1,11 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Added
+- `gap` setting, for the space between elements.
+- `labelGap`, `titleGap` and `descriptionGap` settings, for the space below one element.
+
 ## 1.0.0-beta.2 - 2026-10-14
 
 ### Added

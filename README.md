@@ -131,6 +131,8 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `textEdges` | `caps` | Place by cap height to baseline (`caps`) or by the letters' ink (`ink`) |
 | `titleMaxLines` | `3` | Lines before the title is clamped with an ellipsis |
 | `titleSize` | `116` | Title size in px |
+| `gap` | `24` | Space below each element in px, between line boxes, so the visible space also takes in line height and descenders. With `between` it's a minimum |
+| `labelGap`, `titleGap`, `descriptionGap` | none | Space below one element, over `gap`. The last element shown has none below it |
 | `titleUppercase` | `true` | Set the title in capitals |
 | `showLabel`, `showTitle`, `showDescription`, `showMeta`, `showLogo` | `true` | Turn an element off |
 | `title`, `label`, `description`, `meta` | `{title}`, `{type.name}`, empty, empty | Object templates, see *Card text* |

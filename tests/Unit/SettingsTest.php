@@ -95,6 +95,18 @@ class SettingsTest extends TestCase
         $this->assertSame('@root/Title.otf', $settings->fontPathFor('title'));
     }
 
+    public function testGapAfterFallsBackToGap(): void
+    {
+        $settings = new Settings(['gap' => 30, 'titleGap' => 0, 'descriptionGap' => -5]);
+
+        $this->assertSame(30, $settings->gapAfter('label'));
+        $this->assertSame(0, $settings->gapAfter('title'));
+        $this->assertSame(0, $settings->gapAfter('description'));
+        $this->assertSame(30, $settings->gapAfter('meta'));
+        $this->assertSame(24, (new Settings())->gapAfter('title'));
+        $this->assertFalse($settings->validate());
+    }
+
     public function testCanvasIsFixed(): void
     {
         $settings = new Settings();
