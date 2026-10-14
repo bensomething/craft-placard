@@ -231,7 +231,7 @@ class Generator extends Component
         }
 
         // Drawn in the label's row rather than anchored on its own.
-        $logo = $s->showLogo ? $this->loadLogo(Settings::LOGO_SIZE) : null;
+        $logo = $s->showLogo ? $this->loadLogo($s->logoHeight > 0 ? $s->logoHeight : Settings::LOGO_SIZE) : null;
 
         // Elements flow in one stack, so variable-height blocks push each other
         // along rather than overlap.
@@ -244,10 +244,11 @@ class Generator extends Component
         $blocks = [];
         foreach (Settings::ELEMENTS as $element => $style) {
             $style['color'] = (string)$s->{$element . 'Color'};
+            // Config values skip validation, so hold the floor here.
+            $size = (int)$s->{$element . 'Size'};
+            $style['size'] = $size > 0 ? $size : $style['size'];
             if ($element === 'title') {
-                // Config values skip validation, so hold the floor here.
                 $style['maxLines'] = max(1, $s->titleMaxLines);
-                $style['size'] = $s->titleSize > 0 ? $s->titleSize : $style['size'];
                 $style['uppercase'] = $s->titleUppercase;
             }
             // Hidden elements count as empty, so the stack closes up.

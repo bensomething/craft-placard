@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- `labelSize`, `descriptionSize` and `metaSize` settings, alongside `titleSize`.
+- `logoHeight` setting. The logo's width follows its proportions.
 - `logoPath` can be an SVG. It's drawn at the logo's size, so it stays sharp, on a transparent background.
 
 ## 1.0.0-beta.3 - 2026-10-14

@@ -69,6 +69,9 @@ class SettingsTest extends TestCase
         $this->assertTrue((new Settings(['backgroundBlendMode' => 'multiply']))->validate());
         $this->assertFalse((new Settings(['backgroundBlendMode' => 'hue']))->validate());
         $this->assertFalse((new Settings(['backgroundBlur' => -1]))->validate());
+        $this->assertTrue((new Settings(['labelSize' => 40, 'logoHeight' => 64]))->validate());
+        $this->assertFalse((new Settings(['metaSize' => 0]))->validate());
+        $this->assertFalse((new Settings(['logoHeight' => -1]))->validate());
     }
 
     public function testFontPathSetsEveryElementUnlessOverridden(): void

@@ -10,7 +10,12 @@ return [
     'align' => 'left',
     'titleMaxLines' => 3,
     'titleUppercase' => true,
-    'titleSize' => 116, // px on the 1200×630 card
+    // Sizes in px on the 1200×630 card. The logo's width follows its proportions.
+    'titleSize' => 116,
+    'labelSize' => 28,
+    'descriptionSize' => 32,
+    'metaSize' => 28,
+    'logoHeight' => 48,
     // caps: placed by cap height to last baseline. ink: by what the letters reach.
     'textEdges' => 'caps',
     // Inset for the text in px, as CSS shorthand: 80, [60, 100] or [60, 100, 80, 100].

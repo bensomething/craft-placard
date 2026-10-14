@@ -131,6 +131,8 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `textEdges` | `caps` | Place by cap height to baseline (`caps`) or by the letters' ink (`ink`) |
 | `titleMaxLines` | `3` | Lines before the title is clamped with an ellipsis |
 | `titleSize` | `116` | Title size in px |
+| `labelSize`, `descriptionSize`, `metaSize` | `28`, `32`, `28` | Text sizes in px |
+| `logoHeight` | `48` | Logo height in px. Its width follows its proportions |
 | `padding` | `80` | Inset for the text in px, as CSS shorthand: one value, `[vertical, horizontal]`, `[top, horizontal, bottom]` or `[top, right, bottom, left]`. Text wraps at the width between the sides, and `center` centres within them |
 | `gap` | `24` | Space below each element in px, between line boxes, so the visible space also takes in line height and descenders. With `between` it's a minimum |
 | `labelGap`, `titleGap`, `descriptionGap` | none | Space below one element, over `gap`. The last element shown has none below it |

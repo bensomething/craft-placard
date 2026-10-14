@@ -24,8 +24,9 @@ class Settings extends Model
 
     /**
      * Text elements in stack order. They flow in one stack, so a title that wraps
-     * pushes what follows down rather than overlapping it. The title's size and
-     * max lines come from {@see $titleSize} and {@see $titleMaxLines}.
+     * pushes what follows down rather than overlapping it. Sizes are defaults for
+     * {@see $titleSize} and the like, and the title's max lines come from
+     * {@see $titleMaxLines}.
      */
     public const ELEMENTS = [
         'label' => ['size' => 28, 'maxLines' => 1, 'uppercase' => false],
@@ -85,6 +86,14 @@ class Settings extends Model
 
     /** In pixels. Long titles wrap and clamp rather than shrink to fit. */
     public int $titleSize = 116;
+
+    /** In pixels. */
+    public int $labelSize = 28;
+    public int $descriptionSize = 32;
+    public int $metaSize = 28;
+
+    /** The logo's height in pixels, scaled to keep its proportions. */
+    public int $logoHeight = self::LOGO_SIZE;
 
     /**
      * The inset text sits within, in px, as CSS shorthand: one value for every side,
@@ -332,7 +341,7 @@ class Settings extends Model
             ['align', 'in', 'range' => self::ALIGNMENTS],
             ['textEdges', 'in', 'range' => self::TEXT_EDGES],
             ['titleMaxLines', 'integer', 'min' => 1],
-            ['titleSize', 'integer', 'min' => 1],
+            [['titleSize', 'labelSize', 'descriptionSize', 'metaSize', 'logoHeight'], 'integer', 'min' => 1],
             [['backgroundPadding', 'backgroundRadius', 'backgroundBlur', 'gap', 'labelGap', 'titleGap', 'descriptionGap'], 'integer', 'min' => 0],
             ['backgroundFit', 'in', 'range' => self::BACKGROUND_FITS],
             ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
