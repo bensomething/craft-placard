@@ -7,6 +7,9 @@ use bensomething\placard\models\SocialImageValue;
 use craft\base\ElementInterface;
 use craft\elements\Entry;
 use craft\fields\Assets;
+use craft\fields\Matrix;
+use craft\fields\PlainText;
+use craft\models\EntryType;
 use craft\models\FieldLayout;
 use PHPUnit\Framework\TestCase;
 
@@ -112,6 +115,36 @@ class SocialImageTest extends TestCase
         $this->assertSame('field:hero', $field->effectiveValue($missing, $entry)->source);
     }
 
+    public function testOptionsListAssetFieldsInsideMatrixFields(): void
+    {
+        $seoImage = $this->assetField('seoImage', 'SEO Image');
+        $seo = $this->createStub(Matrix::class);
+        $seo->handle = 'seo';
+        $seo->name = 'SEO';
+        // Two entry types sharing a field list it once.
+        $seo->method('getFieldLayoutProviders')->willReturn([
+            $this->entryType([$seoImage, $this->createStub(PlainText::class)]),
+            $this->entryType([$seoImage]),
+        ]);
+
+        $entry = $this->entryWithFields([$seo, $this->assetField('hero')]);
+        $options = (new SocialImage())->options($entry);
+
+        // Top-level fields come first.
+        $this->assertSame(
+            ['card', 'custom', null, 'field:hero', 'field:seo.seoImage'],
+            array_map(fn(array $option) => $option['value'] ?? null, $options),
+        );
+        $this->assertSame('SEO → SEO Image', $options[4]['label']);
+
+        // Filtered by the inner field's UID.
+        $field = new SocialImage(['imageFields' => ['uid-seoImage']]);
+        $this->assertSame(['card', 'custom', null, 'field:seo.seoImage'], array_map(
+            fn(array $option) => $option['value'] ?? null,
+            $field->options($entry),
+        ));
+    }
+
     public function testIsSingleInstance(): void
     {
         $this->assertFalse(SocialImage::isMultiInstance());
@@ -122,21 +155,49 @@ class SocialImageTest extends TestCase
      */
     private function entryWithAssetFields(array $handles): Entry
     {
-        $fields = array_map(function(string $handle) {
-            $field = $this->createStub(Assets::class);
-            $field->handle = $handle;
-            $field->name = ucfirst($handle);
-            $field->uid = "uid-$handle";
+        return $this->entryWithFields(array_map(fn(string $handle) => $this->assetField($handle), $handles));
+    }
 
-            return $field;
-        }, $handles);
+    /**
+     * @param \craft\base\FieldInterface[] $fields
+     */
+    private function entryWithFields(array $fields): Entry
+    {
+        $entry = $this->createStub(Entry::class);
+        $entry->method('getFieldLayout')->willReturn($this->layout($fields));
 
+        return $entry;
+    }
+
+    /**
+     * @param \craft\base\FieldInterface[] $fields
+     */
+    private function entryType(array $fields): EntryType
+    {
+        $entryType = $this->createStub(EntryType::class);
+        $entryType->method('getFieldLayout')->willReturn($this->layout($fields));
+
+        return $entryType;
+    }
+
+    /**
+     * @param \craft\base\FieldInterface[] $fields
+     */
+    private function layout(array $fields): FieldLayout
+    {
         $layout = $this->createStub(FieldLayout::class);
         $layout->method('getCustomFields')->willReturn($fields);
 
-        $entry = $this->createStub(Entry::class);
-        $entry->method('getFieldLayout')->willReturn($layout);
+        return $layout;
+    }
 
-        return $entry;
+    private function assetField(string $handle, ?string $name = null): Assets
+    {
+        $field = $this->createStub(Assets::class);
+        $field->handle = $handle;
+        $field->name = $name ?? ucfirst($handle);
+        $field->uid = "uid-$handle";
+
+        return $field;
     }
 }

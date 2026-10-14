@@ -44,6 +44,17 @@ Paths accept aliases (`@root`, `@webroot`) and env vars. The canvas is fixed at 
 
 No commercial font is bundled. Inter (SIL OFL) is the default. Set `fontPath` to use your own font throughout, and `titleFontPath`, `labelFontPath`, `descriptionFontPath` or `metaFontPath` to give one element a different font.
 
+### Nested fields
+
+Settings that name a field (`imageFieldHandles`, `backgroundImageField` and the `*ColorField` settings) also take a path into a Matrix or Content Block field. `seo.seoImage` reads `seoImage` from the entries in `seo` and uses the first one with a value. Paths can go more than one level deep.
+
+```php
+'imageFieldHandles' => ['seo.seoImage', 'hero'],
+'backgroundColorField' => 'seo.colour',
+```
+
+Card text templates reach nested fields themselves: `'{seo.one().seoTitle ?? title}'`.
+
 ## Templates
 
 ```twig
@@ -79,7 +90,7 @@ This overrides the section's SEOmatic settings. SEOmatic doesn't transform an im
 
 ## Social Image field
 
-Lets editors choose what each entry shares (the generated card, a custom image, or one of the entry's image fields) with a preview that updates as they edit. Its settings choose which sources are offered, which image fields are listed and the default. A layout can only hold one, and entries without URLs show a note instead.
+Lets editors choose what each entry shares (the generated card, a custom image, or one of the entry's image fields) with a preview that updates as they edit. Its settings choose which sources are offered, which image fields are listed and the default. Asset fields inside the entry's Matrix and Content Block fields are listed too, as *SEO → SEO Image*. A layout can only hold one, and entries without URLs show a note instead.
 
 ## Card text
 

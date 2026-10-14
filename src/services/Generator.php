@@ -8,8 +8,10 @@ use bensomething\placard\models\Settings;
 use bensomething\placard\models\SocialImageValue;
 use bensomething\placard\Plugin;
 use Craft;
+use craft\base\ElementInterface;
 use craft\elements\Asset;
 use craft\elements\db\AssetQuery;
+use craft\elements\db\ElementQueryInterface;
 use craft\elements\db\EntryQuery;
 use craft\elements\Entry;
 use craft\fields\data\ColorData;
@@ -405,24 +407,62 @@ class Generator extends Component
     /**
      * First asset across the given fields. Missing fields are skipped.
      *
-     * @param string[] $handles
+     * @param string[] $handles Handles or `outer.inner` paths, see fieldValues().
      */
     private function firstImage(Entry $entry, array $handles): ?Asset
     {
         foreach ($handles as $handle) {
-            try {
-                $value = $entry->getFieldValue($handle);
-            } catch (\Throwable) {
-                continue;
-            }
-
-            $asset = $value instanceof AssetQuery ? $value->one() : $value;
-            if ($asset instanceof Asset) {
-                return $asset;
+            foreach ($this->fieldValues($entry, $handle) as $value) {
+                $asset = $value instanceof AssetQuery ? $value->one() : $value;
+                if ($asset instanceof Asset) {
+                    return $asset;
+                }
             }
         }
 
         return null;
+    }
+
+    /**
+     * A field's values. A dotted path like `seo.seoImage` reads `seoImage` from
+     * each element in `seo` (a Matrix or Content Block field), in order, and can
+     * go any number of levels deep. Missing fields give no values.
+     *
+     * @return mixed[]
+     */
+    private function fieldValues(ElementInterface $element, string $path): array
+    {
+        $parts = explode('.', trim($path), 2);
+        if ($parts[0] === '') {
+            return [];
+        }
+
+        try {
+            $value = $element->getFieldValue($parts[0]);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        if (!isset($parts[1])) {
+            return [$value];
+        }
+
+        // A query when lazy, a collection when eager-loaded, an element for a Content Block.
+        $nested = match (true) {
+            $value instanceof ElementQueryInterface => $value->all(),
+            $value instanceof ElementInterface => [$value],
+            is_iterable($value) => $value,
+            default => [],
+        };
+
+        $values = [];
+        foreach ($nested as $child) {
+            if ($child instanceof ElementInterface) {
+                array_push($values, ...$this->fieldValues($child, $parts[1]));
+            }
+        }
+
+        return $values;
     }
 
     /**
@@ -451,28 +491,23 @@ class Generator extends Component
 
     /**
      * A colour from the entry's field, or null for the configured one. Only Color
-     * fields and hex strings pass, as Imagick throws on anything else.
+     * fields and hex strings pass, as Imagick throws on anything else. A nested
+     * path takes the first colour set.
      */
     private function entryColor(Entry $entry, string $handle): ?string
     {
-        $handle = trim($handle);
-        if ($handle === '') {
-            return null;
+        foreach ($this->fieldValues($entry, $handle) as $value) {
+            if ($value instanceof ColorData) {
+                return $value->getHex();
+            }
+
+            $value = is_scalar($value) || $value instanceof \Stringable ? trim((string)$value) : '';
+            if (preg_match('/^#?([0-9a-f]{3}){1,2}$/i', $value)) {
+                return $value;
+            }
         }
 
-        try {
-            $value = $entry->getFieldValue($handle);
-        } catch (\Throwable) {
-            return null;
-        }
-
-        if ($value instanceof ColorData) {
-            return $value->getHex();
-        }
-
-        $value = is_scalar($value) || $value instanceof \Stringable ? trim((string)$value) : '';
-
-        return preg_match('/^#?([0-9a-f]{3}){1,2}$/i', $value) ? $value : null;
+        return null;
     }
 
     // -- Text wrapping

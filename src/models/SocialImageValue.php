@@ -14,7 +14,7 @@ class SocialImageValue extends Model
     public const CUSTOM = 'custom';
     public const FIELD_PREFIX = 'field:';
 
-    /** `card`, `custom` or `field:<handle>`. */
+    /** `card`, `custom` or `field:<handle>`, where the handle can be a nested path like `seo.seoImage`. */
     public string $source = self::CARD;
 
     /** Only used by the `custom` source. */

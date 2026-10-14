@@ -10,8 +10,11 @@ use craft\base\Field;
 use craft\elements\Asset;
 use craft\elements\Entry;
 use craft\fields\Assets;
+use craft\fields\ContentBlock;
+use craft\fields\Matrix;
 use craft\helpers\Html;
 use craft\helpers\Json;
+use craft\models\FieldLayout;
 use craft\web\View;
 use yii\base\InvalidConfigException;
 use yii\db\Schema;
@@ -34,7 +37,8 @@ class SocialImage extends Field
     public array $sources = [self::SOURCE_CARD, self::SOURCE_FIELDS, self::SOURCE_CUSTOM];
 
     /**
-     * `*` or field UIDs. Only those in the entry's own layout appear.
+     * `*` or field UIDs. Only those in the entry's own layout, or one level down
+     * in its Matrix and Content Block fields, appear.
      *
      * @var string|string[]
      */
@@ -158,15 +162,28 @@ class SocialImage extends Field
     public function getSettingsHtml(): ?string
     {
         $assetFields = [];
+        $nested = [];
         foreach (Craft::$app->getFields()->getAllFields() as $field) {
             if ($field instanceof Assets) {
                 $assetFields[] = $field;
+            } else {
+                array_push($nested, ...$this->nestedAssetFields($field));
             }
+        }
+
+        // Every path a default could name, as the entry's own fields aren't known here.
+        $defaultFields = array_map(fn(Assets $field) => [
+            'value' => SocialImageValue::FIELD_PREFIX . $field->handle,
+            'label' => Craft::t('site', $field->name),
+        ], $assetFields);
+        foreach ($nested as $option) {
+            $defaultFields[] = ['value' => SocialImageValue::FIELD_PREFIX . $option['path'], 'label' => $option['label']];
         }
 
         return Craft::$app->getView()->renderTemplate('placard/_field/settings', [
             'field' => $this,
             'assetFields' => $assetFields,
+            'defaultFields' => $defaultFields,
         ]);
     }
 
@@ -196,11 +213,11 @@ class SocialImage extends Field
 
         $fieldOptions = [];
         if (in_array(self::SOURCE_FIELDS, $this->sources, true)) {
-            foreach ($this->layoutAssetFields($entry) as $field) {
-                if ($this->imageFields === '*' || in_array($field->uid, (array)$this->imageFields, true)) {
+            foreach ($this->layoutAssetFields($entry->getFieldLayout()) as $option) {
+                if ($this->imageFields === '*' || in_array($option['uid'], (array)$this->imageFields, true)) {
                     $fieldOptions[] = [
-                        'value' => SocialImageValue::FIELD_PREFIX . $field->handle,
-                        'label' => Craft::t('site', $field->name),
+                        'value' => SocialImageValue::FIELD_PREFIX . $option['path'],
+                        'label' => $option['label'],
                     ];
                 }
             }
@@ -235,18 +252,57 @@ class SocialImage extends Field
     }
 
     /**
-     * @return Assets[]
+     * The layout's asset fields, then those one level down in its Matrix and
+     * Content Block fields as `outer.inner` paths.
+     *
+     * @return array<int, array{path: string, uid: string, label: string}>
      */
-    private function layoutAssetFields(Entry $entry): array
+    private function layoutAssetFields(?FieldLayout $layout): array
     {
         $fields = [];
-        foreach ($entry->getFieldLayout()?->getCustomFields() ?? [] as $field) {
+        $nested = [];
+        foreach ($layout?->getCustomFields() ?? [] as $field) {
             if ($field instanceof Assets) {
-                $fields[] = $field;
+                $fields[] = [
+                    'path' => $field->handle,
+                    'uid' => (string)$field->uid,
+                    'label' => Craft::t('site', $field->name),
+                ];
+            } else {
+                array_push($nested, ...$this->nestedAssetFields($field));
             }
         }
 
-        return $fields;
+        return [...$fields, ...$nested];
+    }
+
+    /**
+     * Asset fields in a Matrix or Content Block field's layouts, once each
+     * however many entry types share them.
+     *
+     * @return array<int, array{path: string, uid: string, label: string}>
+     */
+    private function nestedAssetFields(mixed $field): array
+    {
+        if (!$field instanceof Matrix && !$field instanceof ContentBlock) {
+            return [];
+        }
+
+        $options = [];
+        foreach ($field->getFieldLayoutProviders() as $provider) {
+            foreach ($provider->getFieldLayout()->getCustomFields() as $inner) {
+                $path = "$field->handle.$inner->handle";
+                if ($inner instanceof Assets && !isset($options[$path])) {
+                    $options[$path] = [
+                        'path' => $path,
+                        'uid' => (string)$inner->uid,
+                        'label' => Craft::t('site', $field->name) . ' → ' . Craft::t('site', $inner->name),
+                    ];
+                }
+            }
+        }
+
+        return array_values($options);
     }
 
     /** A misconfigured section counts as yes, so the field isn't lost. */

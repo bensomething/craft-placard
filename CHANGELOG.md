@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+- `imageFieldHandles`, `backgroundImageField` and the `*ColorField` settings take nested paths like `seo.seoImage`, to read a field inside a Matrix or Content Block field. The first nested entry with a value is used.
+- The Social Image field lists asset fields inside the entry's Matrix and Content Block fields.
+
 ### Fixed
 - The logo is centred on the label's capitals rather than its line box, which sat the label low beside it.
 

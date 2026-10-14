@@ -17,7 +17,7 @@
 
 {{ forms.checkboxSelectField({
     label: 'Image fields'|t('placard'),
-    instructions: 'Which asset fields Image Fields lists. Only those in the entry’s own field layout appear.'|t('placard'),
+    instructions: 'Which asset fields Image Fields lists. Only those in the entry’s own field layout, or in its Matrix and Content Block fields, appear.'|t('placard'),
     id: 'imageFields',
     name: 'imageFields',
     options: assetFields|map(f => { value: f.uid, label: f.name|t('site') }),
@@ -30,10 +30,10 @@
     { value: 'card', label: 'Generated Card'|t('placard') },
     { value: 'custom', label: 'Custom Image'|t('placard') },
 ] %}
-{% if assetFields|length %}
+{% if defaultFields|length %}
     {% set defaultOptions = defaultOptions|merge([
-        { optgroup: (assetFields|length == 1 ? 'Image Field' : 'Image Fields')|t('placard') },
-    ]|merge(assetFields|map(f => { value: 'field:' ~ f.handle, label: f.name|t('site') }))) %}
+        { optgroup: (defaultFields|length == 1 ? 'Image Field' : 'Image Fields')|t('placard') },
+    ]|merge(defaultFields)) %}
 {% endif %}
 
 {{ forms.selectField({
