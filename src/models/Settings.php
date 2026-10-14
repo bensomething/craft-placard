@@ -158,7 +158,7 @@ class Settings extends Model
     /** @deprecated in 1.0.0-beta.2. Use {@see $titleFontPath}. */
     public string $displayFontPath = '';
 
-    /** A PNG. Empty renders no logo. */
+    /** A PNG or SVG. Empty renders no logo. */
     public string $logoPath = '';
 
     // -- Background -----------------------------------------------------------

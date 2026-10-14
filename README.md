@@ -142,7 +142,7 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `backgroundColorField`, `labelColorField`, `titleColorField`, `descriptionColorField`, `metaColorField` | none | A Color field (or hex text field) to take that colour from, falling back to the setting above |
 | `fontPath` | Inter | Font for every element. Unset, each element uses the bundled Inter in its own weight (Bold title, Medium label, Regular description and meta) |
 | `titleFontPath`, `labelFontPath`, `descriptionFontPath`, `metaFontPath` | none | One element's font, over `fontPath` |
-| `logoPath` | none | PNG drawn beside the label |
+| `logoPath` | none | PNG or SVG drawn beside the label |
 | `imageFieldHandles` | `['seoImage', 'hero', 'featuredImage']` | Share image fields for entries without a Social Image field |
 | `backgroundImageField` | none | Asset field for the background image |
 | `useImageAsBackground` | `false` | Fall back to the share image as the background |

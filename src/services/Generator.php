@@ -728,8 +728,13 @@ class Generator extends Component
         }
 
         try {
-            $logo = new Imagick();
-            $logo->readImage($path);
+            if (in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['svg', 'svgz'], true)) {
+                $logo = $this->readSvg($path, $height);
+            } else {
+                $logo = new Imagick();
+                $logo->readImage($path);
+            }
+
             $logo->resizeImage(0, $height, Imagick::FILTER_LANCZOS, 1);
 
             return $logo;
@@ -739,6 +744,85 @@ class Generator extends Component
 
             return null;
         }
+    }
+
+    /**
+     * An SVG rasterised at 4x the given height, on a transparent background.
+     *
+     * Rasterised at its own size an SVG is blurry once scaled up, and ImageMagick's
+     * own renderer aliases badly when small. That renderer also rounds its canvas
+     * down but not the drawing, clipping the right and bottom edges, so the
+     * viewBox gets a margin that's cropped back off once drawn.
+     */
+    private function readSvg(string $path, int $height): Imagick
+    {
+        $logo = new Imagick();
+        $logo->setBackgroundColor(new ImagickPixel('transparent'));
+
+        $xml = (string)file_get_contents($path);
+        if (str_ends_with(strtolower($path), '.svgz')) {
+            $xml = (string)gzdecode($xml);
+        }
+
+        $doc = new \DOMDocument();
+        $svg = @$doc->loadXML($xml, LIBXML_NONET) ? $doc->documentElement : null;
+        $box = $svg ? $this->svgBox($svg) : null;
+
+        if ($svg === null || $box === null) {
+            // Units we can't measure, so no margin, and edges may still clip.
+            $probe = new Imagick();
+            $probe->pingImage($path);
+            $density = ($probe->getImageResolution()['y'] ?: 96) * $height * 4 / max(1, $probe->getImageHeight());
+            $probe->destroy();
+
+            $logo->setResolution($density, $density);
+            $logo->readImage($path);
+
+            return $logo;
+        }
+
+        [$x, $y, $w, $h] = $box;
+        $pad = max($w, $h) * 0.05;
+        $svg->setAttribute('viewBox', implode(' ', [$x - $pad, $y - $pad, $w + 2 * $pad, $h + 2 * $pad]));
+        $svg->setAttribute('width', (string)($w + 2 * $pad));
+        $svg->setAttribute('height', (string)($h + 2 * $pad));
+
+        // Pixels per SVG unit; an SVG unit is a pixel at 96dpi.
+        $scale = $height * 4 / $h;
+        $logo->setResolution(96 * $scale, 96 * $scale);
+        $logo->readImageBlob((string)$doc->saveXML(), 'logo.svg');
+
+        $logo->cropImage(
+            (int)round($w * $scale),
+            (int)round($h * $scale),
+            (int)round($pad * $scale),
+            (int)round($pad * $scale),
+        );
+        $logo->setImagePage(0, 0, 0, 0);
+
+        return $logo;
+    }
+
+    /**
+     * The SVG's viewBox as [x, y, width, height], from its width and height when
+     * there's no viewBox, or null if they're in units other than pixels.
+     *
+     * @return array{float, float, float, float}|null
+     */
+    private function svgBox(\DOMElement $svg): ?array
+    {
+        $box = preg_split('/[\s,]+/', trim($svg->getAttribute('viewBox')));
+        if ($box !== false && count($box) === 4 && is_numeric($box[2]) && is_numeric($box[3]) && (float)$box[2] > 0 && (float)$box[3] > 0) {
+            return array_map('floatval', $box);
+        }
+
+        $w = $svg->getAttribute('width');
+        $h = $svg->getAttribute('height');
+        if (preg_match('/^([\d.]+)(px)?$/', $w, $wm) && preg_match('/^([\d.]+)(px)?$/', $h, $hm) && (float)$wm[1] > 0 && (float)$hm[1] > 0) {
+            return [0.0, 0.0, (float)$wm[1], (float)$hm[1]];
+        }
+
+        return null;
     }
 
     private function prepText(?string $text, bool $uppercase): string
