@@ -203,11 +203,6 @@ class Generator extends Component
         $h = $s->height;
         $maxWidth = $w - (Settings::PADDING * 2);
 
-        $displayFont = $this->displayFont();
-        $labelFont = $this->font($s->labelFontPath, 'Inter-Medium.ttf');
-        $metaFont = $this->font($s->metaFontPath, 'Inter-Regular.ttf');
-        $descriptionFont = $this->font($s->descriptionFontPath, 'Inter-Regular.ttf');
-
         $backgroundColor = trim((string)$backgroundColor) ?: $s->backgroundColor;
 
         $img = new Imagick();
@@ -239,12 +234,10 @@ class Generator extends Component
 
         // Elements flow in one stack, so variable-height blocks push each other
         // along rather than overlap.
-        $fonts = [
-            'label' => $labelFont,
-            'title' => $displayFont,
-            'description' => $descriptionFont,
-            'meta' => $metaFont,
-        ];
+        $fonts = [];
+        foreach (Settings::FONTS as $element => $bundled) {
+            $fonts[$element] = $this->font($s->fontPathFor($element), $bundled);
+        }
         $texts = ['label' => $label, 'title' => $title, 'description' => $description, 'meta' => $meta];
 
         $blocks = [];
@@ -615,9 +608,10 @@ class Generator extends Component
                 $this->coverCrop($bg, $boxW, $boxH, $focalPoint);
             }
 
-            // No blur: it barely showed at this opacity and cost ~14s a card, which
-            // piled up under the settings preview's uncached re-renders.
-            if ($this->settings->backgroundGreyscale) {
+            if ($this->settings->backgroundBlur > 0) {
+                $this->blur($bg, $this->settings->backgroundBlur);
+            }
+            if ($this->settings->backgroundGrayscale || $this->settings->backgroundGreyscale) {
                 $bg->modulateImage(100, 0, 100);
             }
             $bg->setImageAlphaChannel(Imagick::ALPHACHANNEL_OPAQUE);
@@ -631,7 +625,7 @@ class Generator extends Component
 
             $img->compositeImage(
                 $bg,
-                Imagick::COMPOSITE_OVER,
+                $this->blendMode($this->settings->backgroundBlendMode),
                 (int)round(($w - $bg->getImageWidth()) / 2),
                 (int)round(($h - $bg->getImageHeight()) / 2),
             );
@@ -639,6 +633,45 @@ class Generator extends Component
         } catch (\Throwable) {
             // Render without a background.
         }
+    }
+
+    /**
+     * Blurs at a reduced size and scales back up, which looks the same as a full-size
+     * blur at these strengths. gaussianBlurImage() at full size took 14s a card at
+     * 12px, and piled up under the settings preview's uncached re-renders.
+     */
+    private function blur(Imagick $image, int $sigma): void
+    {
+        $iw = $image->getImageWidth();
+        $ih = $image->getImageHeight();
+        $factor = max(1, $sigma / 3);
+
+        $image->resizeImage(max(1, (int)ceil($iw / $factor)), max(1, (int)ceil($ih / $factor)), Imagick::FILTER_TRIANGLE, 1);
+        $image->blurImage(0, $sigma / $factor);
+        $image->resizeImage($iw, $ih, Imagick::FILTER_TRIANGLE, 1);
+    }
+
+    /**
+     * Unknown values (config skips validation) fall back to a normal blend.
+     *
+     * @return Imagick::COMPOSITE_*
+     */
+    private function blendMode(string $mode): int
+    {
+        return match ($mode) {
+            'multiply' => Imagick::COMPOSITE_MULTIPLY,
+            'screen' => Imagick::COMPOSITE_SCREEN,
+            'overlay' => Imagick::COMPOSITE_OVERLAY,
+            'darken' => Imagick::COMPOSITE_DARKEN,
+            'lighten' => Imagick::COMPOSITE_LIGHTEN,
+            'color-dodge' => Imagick::COMPOSITE_COLORDODGE,
+            'color-burn' => Imagick::COMPOSITE_COLORBURN,
+            'hard-light' => Imagick::COMPOSITE_HARDLIGHT,
+            'soft-light' => Imagick::COMPOSITE_SOFTLIGHT,
+            'difference' => Imagick::COMPOSITE_DIFFERENCE,
+            'exclusion' => Imagick::COMPOSITE_EXCLUSION,
+            default => Imagick::COMPOSITE_OVER,
+        };
     }
 
     /**
@@ -846,11 +879,6 @@ class Generator extends Component
     }
 
     // -- Path resolution
-
-    private function displayFont(): string
-    {
-        return $this->font($this->settings->displayFontPath, 'Inter-Bold.ttf');
-    }
 
     private function font(string $configured, string $fallback): string
     {

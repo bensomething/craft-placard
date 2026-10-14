@@ -47,6 +47,15 @@ class Settings extends Model
 
     public const BACKGROUND_FITS = ['cover', 'contain'];
 
+    /**
+     * Named as in CSS `mix-blend-mode`. Hue, saturation, color and luminosity are
+     * left out because Imagick ignores the image's opacity for them.
+     */
+    public const BLEND_MODES = [
+        'normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge',
+        'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion',
+    ];
+
     public const PADDING = 80;
 
     /** Also the gap between the logo and the label. */
@@ -56,6 +65,14 @@ class Settings extends Model
     public const LINE_HEIGHT = 1.02;
 
     public const LOGO_SIZE = 48;
+
+    /** The bundled Inter weight each element falls back to. */
+    public const FONTS = [
+        'label' => 'Inter-Medium.ttf',
+        'title' => 'Inter-Bold.ttf',
+        'description' => 'Inter-Regular.ttf',
+        'meta' => 'Inter-Regular.ttf',
+    ];
 
     public string $position = 'bottom';
 
@@ -107,17 +124,20 @@ class Settings extends Model
 
     // -- Assets ---------------------------------------------------------------
 
-    /** Empty uses the bundled Inter Bold. */
-    public string $displayFontPath = '';
+    /**
+     * Every element's font, unless it has its own below. Empty uses the bundled
+     * Inter, in a weight per element ({@see FONTS}).
+     */
+    public string $fontPath = '';
 
-    /** Empty uses the bundled Inter Medium. */
+    /** Each element's own font, over {@see $fontPath}. */
+    public string $titleFontPath = '';
     public string $labelFontPath = '';
-
-    /** Empty uses the bundled Inter Regular. */
     public string $descriptionFontPath = '';
-
-    /** Empty uses the bundled Inter Regular. */
     public string $metaFontPath = '';
+
+    /** @deprecated in 1.0.0-beta.2. Use {@see $titleFontPath}. */
+    public string $displayFontPath = '';
 
     /** A PNG. Empty renders no logo. */
     public string $logoPath = '';
@@ -140,9 +160,18 @@ class Settings extends Model
 
     public int $backgroundRadius = 0;
 
+    public bool $backgroundGrayscale = false;
+
+    /** @deprecated in 1.0.0-beta.2. Use {@see $backgroundGrayscale}. */
     public bool $backgroundGreyscale = false;
 
+    /** Blur strength in px, roughly CSS `blur()`. 0 is sharp. */
+    public int $backgroundBlur = 0;
+
     public float $backgroundOpacity = 0.25;
+
+    /** How the background image blends with the canvas colour. */
+    public string $backgroundBlendMode = 'normal';
 
     // -- Data derivation ------------------------------------------------------
 
@@ -202,6 +231,20 @@ class Settings extends Model
         return $settings;
     }
 
+    /** The configured font for an element, or empty for the bundled one. */
+    public function fontPathFor(string $element): string
+    {
+        $own = match ($element) {
+            'title' => $this->titleFontPath ?: $this->displayFontPath,
+            'label' => $this->labelFontPath,
+            'description' => $this->descriptionFontPath,
+            'meta' => $this->metaFontPath,
+            default => '',
+        };
+
+        return $own ?: $this->fontPath;
+    }
+
     public function getWidth(): int
     {
         return self::WIDTH;
@@ -220,8 +263,9 @@ class Settings extends Model
             ['textEdges', 'in', 'range' => self::TEXT_EDGES],
             ['titleMaxLines', 'integer', 'min' => 1],
             ['titleSize', 'integer', 'min' => 1],
-            [['backgroundPadding', 'backgroundRadius'], 'integer', 'min' => 0],
+            [['backgroundPadding', 'backgroundRadius', 'backgroundBlur'], 'integer', 'min' => 0],
             ['backgroundFit', 'in', 'range' => self::BACKGROUND_FITS],
+            ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
             [['backgroundOpacity'], 'number', 'min' => 0, 'max' => 1],
             [['backgroundColor', 'labelColor', 'titleColor', 'descriptionColor', 'metaColor'], 'string'],
         ];

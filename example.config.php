@@ -39,8 +39,10 @@ return [
     'metaColor' => '#a3a3a3',
     'metaColorField' => '',
 
-    // Fonts. Empty falls back to the bundled Inter.
-    'displayFontPath' => '@root/src/fonts/MyDisplay.otf',
+    // Fonts. fontPath sets every element, and each *FontPath overrides it for one.
+    // Empty falls back to the bundled Inter.
+    'fontPath' => '',
+    'titleFontPath' => '@root/src/fonts/MyDisplay.otf',
     'labelFontPath' => '',
     'descriptionFontPath' => '',
     'metaFontPath' => '',
@@ -57,8 +59,10 @@ return [
     'backgroundFit' => 'cover', // or contain
     'backgroundPadding' => 0,
     'backgroundRadius' => 0,
-    'backgroundGreyscale' => false,
-    'backgroundOpacity' => 0.25,
+    'backgroundGrayscale' => false,
+    'backgroundBlur' => 0,
+    'backgroundOpacity' => 0.25, 
+    'backgroundBlendMode' => 'normal', // normal, multiply, screen, overlay, darken, lighten, color-dodge, color-burn,hard-light, soft-light, difference or exclusion.
 
     // craft.placard.default()
     'defaultImagePath' => 'img/og-default.png',

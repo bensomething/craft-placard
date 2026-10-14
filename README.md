@@ -42,7 +42,7 @@ return [
 
 Paths accept aliases (`@root`, `@webroot`) and env vars. The canvas is fixed at 1200×630, the size every platform recommends.
 
-No commercial font is bundled. Inter (SIL OFL) is the default, so point `displayFontPath` at your own display font.
+No commercial font is bundled. Inter (SIL OFL) is the default. Set `fontPath` to use your own font throughout, and `titleFontPath`, `labelFontPath`, `descriptionFontPath` or `metaFontPath` to give one element a different font.
 
 ## Templates
 
@@ -137,8 +137,8 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `backgroundColor` | `#000000` | Canvas colour |
 | `labelColor`, `titleColor`, `descriptionColor`, `metaColor` | `#a3a3a3`, `#ffffff`, `#a3a3a3`, `#a3a3a3` | Text colours |
 | `backgroundColorField`, `labelColorField`, `titleColorField`, `descriptionColorField`, `metaColorField` | none | A Color field (or hex text field) to take that colour from, falling back to the setting above |
-| `displayFontPath` | Inter Bold | Title font |
-| `labelFontPath`, `descriptionFontPath`, `metaFontPath` | Inter | Fonts for the other elements |
+| `fontPath` | Inter | Font for every element. Unset, each element uses the bundled Inter in its own weight (Bold title, Medium label, Regular description and meta) |
+| `titleFontPath`, `labelFontPath`, `descriptionFontPath`, `metaFontPath` | none | One element's font, over `fontPath` |
 | `logoPath` | none | PNG drawn beside the label |
 | `imageFieldHandles` | `['seoImage', 'hero', 'featuredImage']` | Share image fields for entries without a Social Image field |
 | `backgroundImageField` | none | Asset field for the background image |
@@ -146,7 +146,9 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `backgroundImagePath` | none | Fixed background image, used last |
 | `backgroundFit` | `cover` | `cover` (cropped around the focal point) or `contain` |
 | `backgroundPadding`, `backgroundRadius` | `0` | Inset and corner radius in px |
-| `backgroundGreyscale`, `backgroundOpacity` | `false`, `0.25` | Greyscale and strength of the background image |
+| `backgroundGrayscale`, `backgroundOpacity` | `false`, `0.25` | Grayscale and strength of the background image |
+| `backgroundBlur` | `0` | Blur strength of the background image in px, roughly as CSS `blur()` |
+| `backgroundBlendMode` | `normal` | How the background image blends with `backgroundColor`: `multiply`, `screen`, `overlay`, `darken`, `lighten`, `color-dodge`, `color-burn`, `hard-light`, `soft-light`, `difference` or `exclusion`, as in CSS |
 | `defaultImagePath` | `img/og-default.png` | Returned by `default()` |
 | `sections`, `entryTypes` | `[]` | Overrides by handle |
 

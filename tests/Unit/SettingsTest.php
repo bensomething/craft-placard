@@ -66,6 +66,33 @@ class SettingsTest extends TestCase
         $this->assertTrue((new Settings())->validate());
         $this->assertFalse((new Settings(['position' => 'sideways']))->validate());
         $this->assertFalse((new Settings(['backgroundOpacity' => 2]))->validate());
+        $this->assertTrue((new Settings(['backgroundBlendMode' => 'multiply']))->validate());
+        $this->assertFalse((new Settings(['backgroundBlendMode' => 'hue']))->validate());
+        $this->assertFalse((new Settings(['backgroundBlur' => -1]))->validate());
+    }
+
+    public function testFontPathSetsEveryElementUnlessOverridden(): void
+    {
+        $settings = new Settings([
+            'fontPath' => '@root/Base.otf',
+            'titleFontPath' => '@root/Title.otf',
+        ]);
+
+        $this->assertSame('@root/Title.otf', $settings->fontPathFor('title'));
+        $this->assertSame('@root/Base.otf', $settings->fontPathFor('label'));
+        $this->assertSame('@root/Base.otf', $settings->fontPathFor('description'));
+        $this->assertSame('@root/Base.otf', $settings->fontPathFor('meta'));
+        $this->assertSame('', (new Settings())->fontPathFor('title'));
+    }
+
+    public function testDisplayFontPathStillSetsTheTitle(): void
+    {
+        $settings = new Settings(['fontPath' => '@root/Base.otf', 'displayFontPath' => '@root/Display.otf']);
+
+        $this->assertSame('@root/Display.otf', $settings->fontPathFor('title'));
+
+        $settings->titleFontPath = '@root/Title.otf';
+        $this->assertSame('@root/Title.otf', $settings->fontPathFor('title'));
     }
 
     public function testCanvasIsFixed(): void
