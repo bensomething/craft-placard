@@ -1,6 +1,6 @@
 # Release Notes for Placard
 
-## Unreleased
+## 1.0.0-beta.4 - 2026-10-14
 
 ### Added
 - `labelSize`, `descriptionSize` and `metaSize` settings, alongside `titleSize`.
