@@ -1,6 +1,6 @@
 # Release Notes for Placard
 
-## Unreleased
+## 1.0.0-beta.6 - 2026-10-15
 
 ### Added
 - `label`, `title`, `description` and `meta` each take an array of their settings: `text`, `show`, `size`, `lineHeight`, `maxLines`, `uppercase`, `color`, `colorField`, `fontPath` and `gap`. A string still sets the text, and `false` hides the element. In `sections` and `entryTypes`, an element's array changes only the keys it names.
