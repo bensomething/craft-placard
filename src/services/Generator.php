@@ -246,15 +246,18 @@ class Generator extends Component
         $texts = ['label' => $label, 'title' => $title, 'description' => $description, 'meta' => $meta];
 
         $blocks = [];
-        foreach (Settings::ELEMENTS as $element => $style) {
-            $style['color'] = (string)$s->{$element . 'Color'};
-            // Config values skip validation, so hold the floor here.
+        foreach (Settings::ELEMENTS as $element => $fallback) {
+            // Config values skip validation, so hold the floors here.
             $size = (int)$s->{$element . 'Size'};
-            $style['size'] = $size > 0 ? $size : $style['size'];
-            if ($element === 'title') {
-                $style['maxLines'] = max(1, $s->titleMaxLines);
-                $style['uppercase'] = $s->titleUppercase;
-            }
+            $lineHeight = (float)$s->{$element . 'LineHeight'};
+            $maxLines = (int)$s->{$element . 'MaxLines'};
+            $style = [
+                'color' => (string)$s->{$element . 'Color'},
+                'size' => $size > 0 ? $size : $fallback['size'],
+                'lineHeight' => $lineHeight > 0 ? $lineHeight : Settings::LINE_HEIGHT,
+                'maxLines' => $maxLines > 0 ? $maxLines : $fallback['maxLines'],
+                'uppercase' => (bool)$s->{$element . 'Uppercase'},
+            ];
             // Hidden elements count as empty, so the stack closes up.
             $text = $s->{'show' . ucfirst($element)}
                 ? $this->prepText($texts[$element] ?? null, $style['uppercase'])
@@ -273,6 +276,7 @@ class Generator extends Component
                     'style' => $style,
                     'size' => 0.0,
                     'lineHeight' => 0.0,
+                    'baseline' => 0.0,
                     'height' => (float)$blockLogo->getImageHeight(),
                     'logo' => $blockLogo,
                     'logoTop' => 0.0,
@@ -287,11 +291,9 @@ class Generator extends Component
 
             $font = $fonts[$element];
             if ($element === 'title') {
-                [$lines, $size, $lineHeight] = $this->fitTitle($img, $font, $text, $maxWidth, $style['size'], $style['maxLines']);
+                $lines = $this->fitTitle($img, $font, $text, $maxWidth, $style['size'], $style['maxLines']);
             } else {
-                $size = $style['size'];
-                $lineHeight = $size * Settings::LINE_HEIGHT;
-                $measure = $this->measureDraw($font, $size);
+                $measure = $this->measureDraw($font, $style['size']);
                 $lines = $this->clampLines($img, $measure, $text, $maxWidth, $style['maxLines']);
                 $lines = array_map(
                     fn(string $line): string => $this->truncateToWidth($img, $measure, $line, $maxWidth),
@@ -299,17 +301,21 @@ class Generator extends Component
                 );
             }
 
+            $size = $style['size'];
+            $lineHeight = $size * $style['lineHeight'];
+            // As in CSS, the space a line height adds is shared above and below the text.
+            $baseline = $size + ($lineHeight - $size) / 2;
             $height = count($lines) * $lineHeight;
             // Empty space between the line box and the visible text, since letters reach
             // only ~70% of the font size. `caps` trims to cap height and last baseline
             // (consistent across cards), `ink` to the actual glyphs (negative below
             // when a descender overhangs).
-            $lastBaseline = $size + (count($lines) - 1) * $lineHeight;
+            $lastBaseline = $baseline + (count($lines) - 1) * $lineHeight;
             if ($s->textEdges === 'ink') {
-                $inkTop = max(0.0, $size - $this->inkExtent($img, $font, $size, $lines[0])[0]);
+                $inkTop = max(0.0, $baseline - $this->inkExtent($img, $font, $size, $lines[0])[0]);
                 $inkBottom = $height - $lastBaseline - $this->inkExtent($img, $font, $size, $lines[count($lines) - 1])[1];
             } else {
-                $inkTop = max(0.0, $size - $this->capHeight($img, $font, $size));
+                $inkTop = max(0.0, $baseline - $this->capHeight($img, $font, $size));
                 $inkBottom = max(0.0, $height - $lastBaseline);
             }
 
@@ -320,7 +326,7 @@ class Generator extends Component
                 // logo reaches further, its edge is the visible one (the inset goes
                 // negative).
                 $logoHeight = $blockLogo->getImageHeight();
-                $capTop = $size - $this->capHeight($img, $font, $size);
+                $capTop = $baseline - $this->capHeight($img, $font, $size);
                 $logoTop = ($capTop + $lastBaseline - $logoHeight) / 2;
                 $inkTop = min($inkTop, $logoTop);
                 $inkBottom = min($inkBottom, $height - $logoTop - $logoHeight);
@@ -332,6 +338,7 @@ class Generator extends Component
                 'style' => $style,
                 'size' => $size,
                 'lineHeight' => $lineHeight,
+                'baseline' => $baseline,
                 'height' => $height,
                 'logo' => $blockLogo,
                 'logoTop' => $logoTop,
@@ -516,7 +523,9 @@ class Generator extends Component
 
     /**
      * Wraps the title at its set size, balanced like `text-wrap: balance` when it
-     * fits in $maxLines, else clamped with an ellipsis. Returns [lines, size, lineHeight].
+     * fits in $maxLines, else clamped with an ellipsis.
+     *
+     * @return string[]
      */
     private function fitTitle(Imagick $img, string $font, string $text, float $maxWidth, int $size, int $maxLines): array
     {
@@ -536,7 +545,7 @@ class Generator extends Component
             $lines,
         );
 
-        return [$lines, $size, $size * Settings::LINE_HEIGHT];
+        return $lines;
     }
 
     private function truncateToWidth(Imagick $img, ImagickDraw $draw, string $line, float $maxWidth): string
@@ -909,7 +918,7 @@ class Generator extends Component
      * Draws a block at a top edge. A logo and its text are aligned as one row, with
      * the text inset to make room.
      *
-     * @param array{font:string, lines:string[], style:array, size:float, lineHeight:float, height:float, logo:?Imagick, logoTop:float} $block
+     * @param array{font:string, lines:string[], style:array, size:float, lineHeight:float, baseline:float, height:float, logo:?Imagick, logoTop:float} $block
      */
     private function drawBlock(Imagick $img, array $block, float $top): void
     {
@@ -961,7 +970,7 @@ class Generator extends Component
         }
 
         $draw->setTextAlignment($align);
-        $y = $top + $block['size'];
+        $y = $top + $block['baseline'];
         foreach ($block['lines'] as $line) {
             $img->annotateImage($draw, $x, $y, 0, $line);
             $y += $block['lineHeight'];

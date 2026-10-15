@@ -153,7 +153,166 @@ class SettingsTest extends TestCase
     {
         $this->assertTrue((new Settings(['border' => [8, 0, 0, 0]]))->validate());
         $this->assertFalse((new Settings(['border' => -1]))->validate());
-        $this->assertFalse((new Settings(['border' => []]))->validate());
+        $this->assertFalse((new Settings(['border' => ['width' => []]]))->validate());
+    }
+
+    public function testElementArraysSetTheirSettings(): void
+    {
+        $settings = new Settings([
+            'title' => [
+                'text' => '{seoTitle}',
+                'size' => 96,
+                'lineHeight' => 1.1,
+                'maxLines' => 2,
+                'uppercase' => false,
+                'color' => '#ff0000',
+                'colorField' => 'seo.colour',
+                'fontPath' => '@root/Display.otf',
+                'gap' => 12,
+            ],
+            'description' => ['lineHeight' => 1.4, 'show' => false],
+        ]);
+
+        $this->assertSame('{seoTitle}', $settings->title);
+        $this->assertSame(96, $settings->titleSize);
+        $this->assertSame(1.1, $settings->titleLineHeight);
+        $this->assertSame(2, $settings->titleMaxLines);
+        $this->assertFalse($settings->titleUppercase);
+        $this->assertSame('#ff0000', $settings->titleColor);
+        $this->assertSame('seo.colour', $settings->titleColorField);
+        $this->assertSame('@root/Display.otf', $settings->titleFontPath);
+        $this->assertSame(12, $settings->titleGap);
+        $this->assertSame(1.4, $settings->descriptionLineHeight);
+        $this->assertFalse($settings->showDescription);
+        // Untouched keys keep their defaults.
+        $this->assertSame(32, $settings->descriptionSize);
+    }
+
+    public function testElementStringsAreTextAndBooleansShowOrHide(): void
+    {
+        $settings = new Settings(['label' => '{section.name}', 'meta' => false]);
+
+        $this->assertSame('{section.name}', $settings->label);
+        $this->assertFalse($settings->showMeta);
+        $this->assertSame('', $settings->meta);
+    }
+
+    public function testFlatKeysStillWork(): void
+    {
+        $settings = new Settings(['titleSize' => 90, 'titleLineHeight' => 1.2, 'showMeta' => false]);
+
+        $this->assertSame(90, $settings->titleSize);
+        $this->assertSame(1.2, $settings->titleLineHeight);
+        $this->assertFalse($settings->showMeta);
+    }
+
+    public function testElementKeysAnElementDoesNotHaveAreSkipped(): void
+    {
+        // Meta is always last, so it has no gap.
+        $settings = new Settings(['meta' => ['gap' => 10, 'nonsense' => 1, 'size' => 20]]);
+
+        $this->assertSame(20, $settings->metaSize);
+        $this->assertFalse(property_exists($settings, 'metaGap'));
+    }
+
+    public function testLogoBackgroundAndBorderArraysSetTheirSettings(): void
+    {
+        $settings = new Settings([
+            'logo' => ['path' => '@webroot/logo.svg', 'height' => 40],
+            'background' => [
+                'color' => '#1f1f1f',
+                'colorField' => 'seo.colour',
+                'imageField' => 'seo.seoImage',
+                'useShareImage' => true,
+                'imagePath' => '@webroot/bg.png',
+                'fit' => 'contain',
+                'padding' => 10,
+                'radius' => 12,
+                'grayscale' => true,
+                'blur' => 4,
+                'opacity' => 0.5,
+                'blendMode' => 'multiply',
+            ],
+            'border' => ['width' => [8, 0, 0, 0], 'color' => '#f5b400', 'colorField' => 'accent'],
+        ]);
+
+        $this->assertSame('@webroot/logo.svg', $settings->logoPath);
+        $this->assertSame(40, $settings->logoHeight);
+        $this->assertSame('#1f1f1f', $settings->backgroundColor);
+        $this->assertSame('seo.colour', $settings->backgroundColorField);
+        $this->assertSame('seo.seoImage', $settings->backgroundImageField);
+        $this->assertTrue($settings->useImageAsBackground);
+        $this->assertSame('@webroot/bg.png', $settings->backgroundImagePath);
+        $this->assertSame('contain', $settings->backgroundFit);
+        $this->assertSame(10, $settings->backgroundPadding);
+        $this->assertSame(12, $settings->backgroundRadius);
+        $this->assertTrue($settings->backgroundGrayscale);
+        $this->assertSame(4, $settings->backgroundBlur);
+        $this->assertSame(0.5, $settings->backgroundOpacity);
+        $this->assertSame('multiply', $settings->backgroundBlendMode);
+        $this->assertSame([8, 0, 0, 0], $settings->border);
+        $this->assertSame('#f5b400', $settings->borderColor);
+        $this->assertSame('accent', $settings->borderColorField);
+    }
+
+    public function testGroupShorthands(): void
+    {
+        $settings = new Settings(['logo' => '@webroot/logo.png', 'background' => '#222222', 'border' => [8, 0, 0, 0]]);
+
+        $this->assertSame('@webroot/logo.png', $settings->logoPath);
+        $this->assertSame('#222222', $settings->backgroundColor);
+        $this->assertSame(['top' => 8, 'right' => 0, 'bottom' => 0, 'left' => 0], $settings->borderBox());
+        $this->assertSame(4, (new Settings(['border' => 4]))->borderBox()['left']);
+        $this->assertFalse((new Settings(['logo' => false]))->showLogo);
+    }
+
+    public function testGroupOverridesChangeOnlyTheKeysTheyName(): void
+    {
+        $settings = new Settings([
+            'background' => ['color' => '#000000', 'blur' => 8],
+            'border' => ['width' => [8, 0, 0, 0], 'color' => '#ffffff'],
+            'sections' => ['whatsOn' => ['border' => ['color' => '#33bbdd'], 'background' => ['blur' => 0]]],
+        ]);
+
+        $resolved = $settings->forTypes('whatsOn', null);
+
+        $this->assertSame('#33bbdd', $resolved->borderColor);
+        $this->assertSame([8, 0, 0, 0], $resolved->border);
+        $this->assertSame(0, $resolved->backgroundBlur);
+        $this->assertSame('#000000', $resolved->backgroundColor);
+    }
+
+    public function testSetAttributesExpandsElementArrays(): void
+    {
+        // How Craft applies config/placard.php.
+        $settings = new Settings();
+        $settings->setAttributes(['title' => ['size' => 80]], false);
+
+        $this->assertSame(80, $settings->titleSize);
+        $this->assertSame('{title}', $settings->title);
+    }
+
+    public function testElementOverridesChangeOnlyTheKeysTheyName(): void
+    {
+        $settings = new Settings([
+            'title' => ['size' => 96, 'color' => '#ffffff'],
+            'sections' => ['news' => ['title' => ['color' => '#ff0000']]],
+            'entryTypes' => ['article' => ['title' => ['size' => 64], 'meta' => false]],
+        ]);
+
+        $resolved = $settings->forTypes('news', 'article');
+
+        $this->assertSame('#ff0000', $resolved->titleColor);
+        $this->assertSame(64, $resolved->titleSize);
+        $this->assertFalse($resolved->showMeta);
+        $this->assertSame(96, $settings->titleSize);
+    }
+
+    public function testValidatesElementSettings(): void
+    {
+        $this->assertTrue((new Settings(['description' => ['lineHeight' => 1.4, 'maxLines' => 3]]))->validate());
+        $this->assertFalse((new Settings(['description' => ['lineHeight' => 0]]))->validate());
+        $this->assertFalse((new Settings(['label' => ['maxLines' => 0]]))->validate());
     }
 
     public function testCanvasIsFixed(): void

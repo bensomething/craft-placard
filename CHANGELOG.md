@@ -1,5 +1,16 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Added
+- `label`, `title`, `description` and `meta` each take an array of their settings: `text`, `show`, `size`, `lineHeight`, `maxLines`, `uppercase`, `color`, `colorField`, `fontPath` and `gap`. A string still sets the text, and `false` hides the element. In `sections` and `entryTypes`, an element's array changes only the keys it names.
+- Line height for each element, as a multiple of the size. It defaults to 1.02, as before, with the extra space now shared above and below each line, as in CSS.
+- `maxLines` and `uppercase` for the label, description and meta, which were fixed at 1, 2 and 1 lines and never uppercase.
+- `logo`, `background` and `border` take arrays of their settings in the same way, e.g. `'border' => ['width' => [8, 0, 0, 0], 'color' => '#f5b400']`. A single value sets the logo's path, the background's colour or the border's widths, and `'logo' => false` hides the logo.
+
+### Deprecated
+- The flat element, logo, background and border settings in config (`titleSize`, `showMeta`, `logoHeight`, `backgroundBlur`, `borderColor` and the like). They still work, but use the arrays. `useImageAsBackground` is `background.useShareImage`. The properties stay on the settings model, for `DefineCardEvent`.
+
 ## 1.0.0-beta.5 - 2026-10-14
 
 ### Added

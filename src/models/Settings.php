@@ -2,6 +2,7 @@
 
 namespace bensomething\placard\models;
 
+use Craft;
 use craft\base\Model;
 use craft\elements\Entry;
 
@@ -24,15 +25,67 @@ class Settings extends Model
 
     /**
      * Text elements in stack order. They flow in one stack, so a title that wraps
-     * pushes what follows down rather than overlapping it. Sizes are defaults for
-     * {@see $titleSize} and the like, and the title's max lines come from
-     * {@see $titleMaxLines}.
+     * pushes what follows down rather than overlapping it. The values are fallbacks
+     * for config that skips validation, matching the defaults of {@see $titleSize}
+     * and the like.
      */
     public const ELEMENTS = [
-        'label' => ['size' => 28, 'maxLines' => 1, 'uppercase' => false],
-        'title' => ['size' => 116, 'maxLines' => 3, 'uppercase' => true],
-        'description' => ['size' => 32, 'maxLines' => 2, 'uppercase' => false],
-        'meta' => ['size' => 28, 'maxLines' => 1, 'uppercase' => false],
+        'label' => ['size' => 28, 'maxLines' => 1],
+        'title' => ['size' => 116, 'maxLines' => 3],
+        'description' => ['size' => 32, 'maxLines' => 2],
+        'meta' => ['size' => 28, 'maxLines' => 1],
+    ];
+
+    /**
+     * Keys of an element's config array (`'title' => ['size' => 96]`) and the
+     * settings they set, with `{e}` as the element and `{E}` capitalised.
+     */
+    public const ELEMENT_KEYS = [
+        'text' => '{e}',
+        'show' => 'show{E}',
+        'size' => '{e}Size',
+        'lineHeight' => '{e}LineHeight',
+        'maxLines' => '{e}MaxLines',
+        'uppercase' => '{e}Uppercase',
+        'color' => '{e}Color',
+        'colorField' => '{e}ColorField',
+        'fontPath' => '{e}FontPath',
+        'gap' => '{e}Gap',
+    ];
+
+    /** Keys of the other config arrays and the settings they set. */
+    public const GROUP_KEYS = [
+        'logo' => [
+            'path' => 'logoPath',
+            'height' => 'logoHeight',
+            'show' => 'showLogo',
+        ],
+        'background' => [
+            'color' => 'backgroundColor',
+            'colorField' => 'backgroundColorField',
+            'imageField' => 'backgroundImageField',
+            'useShareImage' => 'useImageAsBackground',
+            'imagePath' => 'backgroundImagePath',
+            'fit' => 'backgroundFit',
+            'padding' => 'backgroundPadding',
+            'radius' => 'backgroundRadius',
+            'grayscale' => 'backgroundGrayscale',
+            'blur' => 'backgroundBlur',
+            'opacity' => 'backgroundOpacity',
+            'blendMode' => 'backgroundBlendMode',
+        ],
+        'border' => [
+            'width' => 'border',
+            'color' => 'borderColor',
+            'colorField' => 'borderColorField',
+        ],
+    ];
+
+    /** What each group's key sets when given a single value rather than an array. */
+    public const GROUP_SHORTHANDS = [
+        'logo' => 'path',
+        'background' => 'color',
+        'border' => 'width',
     ];
 
     /** `between` pushes the first and last elements to the padding edges. */
@@ -60,7 +113,7 @@ class Settings extends Model
     /** Between the logo and the label. */
     public const LOGO_GAP = 24;
 
-    /** A multiple of the font size. */
+    /** The default line height, as a multiple of the font size. */
     public const LINE_HEIGHT = 1.02;
 
     public const LOGO_SIZE = 48;
@@ -79,10 +132,26 @@ class Settings extends Model
 
     public string $textEdges = 'caps';
 
-    /** A title needing fewer lines is balanced across the ones it uses. */
+    // Each element's settings below, and the logo's, background's and border's,
+    // can also be set as one array under its name, see expand(). That's the
+    // documented form.
+
+    /** Lines before the text is clamped with an ellipsis. A title needing fewer is balanced across the ones it uses. */
     public int $titleMaxLines = 3;
+    public int $labelMaxLines = 1;
+    public int $descriptionMaxLines = 2;
+    public int $metaMaxLines = 1;
 
     public bool $titleUppercase = true;
+    public bool $labelUppercase = false;
+    public bool $descriptionUppercase = false;
+    public bool $metaUppercase = false;
+
+    /** A multiple of the font size, as in CSS. The extra space is shared above and below each line. */
+    public float $titleLineHeight = self::LINE_HEIGHT;
+    public float $labelLineHeight = self::LINE_HEIGHT;
+    public float $descriptionLineHeight = self::LINE_HEIGHT;
+    public float $metaLineHeight = self::LINE_HEIGHT;
 
     /** In pixels. Long titles wrap and clamp rather than shrink to fit. */
     public int $titleSize = 116;
@@ -241,6 +310,58 @@ class Settings extends Model
     /** The fallback image is for pages with no entry, so it can't vary by type. */
     public const NOT_OVERRIDABLE = ['sections', 'entryTypes', 'defaultImagePath'];
 
+    public function __construct($config = [])
+    {
+        parent::__construct(self::expand($config));
+    }
+
+    public function setAttributes($values, $safeOnly = true): void
+    {
+        parent::setAttributes(self::expand($values), $safeOnly);
+    }
+
+    /**
+     * Turns config arrays into the settings they stand for, so `'title' =>
+     * ['size' => 96]` sets {@see $titleSize} and `'logo' => ['height' => 40]`
+     * sets {@see $logoHeight}. A single value sets the group's main setting (an
+     * element's text, the logo's path, the background's colour, the border's
+     * widths), and a boolean shows or hides it. Keys a group doesn't have are
+     * logged and skipped.
+     *
+     * @param array<array-key, mixed> $config
+     * @return array<array-key, mixed>
+     */
+    public static function expand(array $config): array
+    {
+        foreach (self::groups() as $group => [$keys, $shorthand]) {
+            if (!array_key_exists($group, $config)) {
+                continue;
+            }
+
+            $value = $config[$group];
+            unset($config[$group]);
+
+            if (is_bool($value) && isset($keys['show'])) {
+                $value = ['show' => $value];
+            } elseif (!is_array($value) || ($value !== [] && array_is_list($value))) {
+                // A list is the border's widths, not a group.
+                $value = [$shorthand => $value];
+            }
+
+            foreach ($value as $key => $setting) {
+                $name = $keys[$key] ?? '';
+                if ($name === '' || !property_exists(self::class, $name)) {
+                    Craft::warning("Placard has no \"$key\" setting for the $group.", __METHOD__);
+                    continue;
+                }
+
+                $config[$name] = $setting;
+            }
+        }
+
+        return $config;
+    }
+
     public function forEntry(Entry $entry): self
     {
         // Nested entries have no section, and their owner's doesn't apply to them.
@@ -260,7 +381,8 @@ class Settings extends Model
                 continue;
             }
 
-            foreach ($overrides as $name => $value) {
+            // Expanded, so an element array changes only the keys it names.
+            foreach (self::expand($overrides) as $name => $value) {
                 if (is_string($name) && property_exists($settings, $name) && !in_array($name, self::NOT_OVERRIDABLE, true)) {
                     $settings->$name = $value;
                 }
@@ -362,7 +484,8 @@ class Settings extends Model
             ['position', 'in', 'range' => self::POSITIONS],
             ['align', 'in', 'range' => self::ALIGNMENTS],
             ['textEdges', 'in', 'range' => self::TEXT_EDGES],
-            ['titleMaxLines', 'integer', 'min' => 1],
+            [['titleMaxLines', 'labelMaxLines', 'descriptionMaxLines', 'metaMaxLines'], 'integer', 'min' => 1],
+            [['titleLineHeight', 'labelLineHeight', 'descriptionLineHeight', 'metaLineHeight'], 'number', 'min' => 0.1],
             [['titleSize', 'labelSize', 'descriptionSize', 'metaSize', 'logoHeight'], 'integer', 'min' => 1],
             [['backgroundPadding', 'backgroundRadius', 'backgroundBlur', 'gap', 'labelGap', 'titleGap', 'descriptionGap'], 'integer', 'min' => 0],
             ['backgroundFit', 'in', 'range' => self::BACKGROUND_FITS],
@@ -371,6 +494,25 @@ class Settings extends Model
             [['backgroundOpacity'], 'number', 'min' => 0, 'max' => 1],
             [['backgroundColor', 'labelColor', 'titleColor', 'descriptionColor', 'metaColor', 'borderColor'], 'string'],
         ];
+    }
+
+    /**
+     * Each config array's keys, mapped to settings, and the key a single value sets.
+     *
+     * @return array<string, array{0: array<string, string>, 1: string}>
+     */
+    private static function groups(): array
+    {
+        $groups = [];
+        foreach (array_keys(self::ELEMENTS) as $element) {
+            $replace = ['{e}' => $element, '{E}' => ucfirst($element)];
+            $groups[$element] = [array_map(fn(string $name): string => strtr($name, $replace), self::ELEMENT_KEYS), 'text'];
+        }
+        foreach (self::GROUP_KEYS as $group => $keys) {
+            $groups[$group] = [$keys, self::GROUP_SHORTHANDS[$group]];
+        }
+
+        return $groups;
     }
 
     /**
