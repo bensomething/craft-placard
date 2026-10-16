@@ -20,6 +20,9 @@ class SocialImageValue extends Model
     /** Only used by the `custom` source. */
     public ?int $assetId = null;
 
+    /** A handle from the `styles` config, or null for none. Only affects the generated card. */
+    public ?string $style = null;
+
     public function getFieldHandle(): ?string
     {
         return str_starts_with($this->source, self::FIELD_PREFIX)

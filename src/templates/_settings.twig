@@ -10,28 +10,51 @@
 {% endif %}
 
 <div class="placard-settings" data-sample-url="{{ actionUrl('placard/image/sample') }}">
-    {% if previewOptions %}
-        {# Entries are fetched when a pair is picked, not up front. #}
-        <div class="field">
-            <div class="heading">
-                <label for="placard-preview-type">{{ 'Preview'|t('placard') }}</label>
-            </div>
-            <div class="input ltr placard-settings__control">
-                <div class="select">
-                    <select id="placard-preview-type">
-                        <option value="" data-section="" data-type="">{{ 'Default'|t('placard') }}</option>
-                        {% for option in previewOptions %}
-                            <option data-section="{{ option.section }}" data-type="{{ option.type }}">
-                                {{- option.label -}}
-                            </option>
-                        {% endfor %}
-                    </select>
+    {% if previewOptions or styleNames %}
+        {# Half width each, side by side. #}
+        <div class="placard-settings__row">
+            {% if previewOptions %}
+                {# Entries are fetched when a pair is picked, not up front. #}
+                <div class="field">
+                    <div class="heading">
+                        <label for="placard-preview-type">{{ 'Preview'|t('placard') }}</label>
+                    </div>
+                    <div class="input ltr placard-settings__control">
+                        <div class="select">
+                            <select id="placard-preview-type">
+                                <option value="" data-section="" data-type="">{{ 'Default'|t('placard') }}</option>
+                                {% for option in previewOptions %}
+                                    <option data-section="{{ option.section }}" data-type="{{ option.type }}">
+                                        {{- option.label -}}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="select hidden">
+                            <select id="placard-preview-entry" aria-label="{{ 'Entry'|t('app') }}"></select>
+                        </div>
+                        <span class="light placard-settings__caption hidden" aria-live="polite"></span>
+                    </div>
                 </div>
-                <div class="select hidden">
-                    <select id="placard-preview-entry" aria-label="{{ 'Entry'|t('app') }}"></select>
+            {% endif %}
+
+            {% if styleNames %}
+                <div class="field">
+                    <div class="heading">
+                        <label for="placard-preview-style">{{ 'Style'|t('placard') }}</label>
+                    </div>
+                    <div class="input ltr">
+                        <div class="select">
+                            <select id="placard-preview-style">
+                                <option value="">{{ 'Default'|t('placard') }}</option>
+                                {% for handle, name in styleNames %}
+                                    <option value="{{ handle }}">{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
                 </div>
-                <span class="light placard-settings__caption hidden" aria-live="polite"></span>
-            </div>
+            {% endif %}
         </div>
     {% endif %}
 
@@ -46,7 +69,7 @@
 
 {# A direct child of the content pane, so Craft runs it full width. Only needed
    under the Preview dropdown. #}
-{% if previewOptions %}
+{% if previewOptions or styleNames %}
     <hr>
 {% endif %}
 
@@ -65,6 +88,14 @@
 </ul>
 
 <style>
+    .placard-settings__row {
+        display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px;
+    }
+    /* Craft spaces stacked fields with a top margin, which would offset the second column. */
+    .placard-settings__row > .field { margin: 0; }
+    @media only screen and (max-width: 30rem) {
+        .placard-settings__row { grid-template-columns: minmax(0, 1fr); }
+    }
     .placard-settings__control {
         display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     }
@@ -85,6 +116,7 @@
 
     var select = document.getElementById('placard-preview-type');
     var entrySelect = document.getElementById('placard-preview-entry');
+    var styleSelect = document.getElementById('placard-preview-style');
     var caption = root.querySelector('.placard-settings__caption');
     var img = card.querySelector('.placard-sp__img');
     var refresh = document.getElementById('placard-refresh');
@@ -104,6 +136,7 @@
         if (pair.section) params.section = pair.section;
         if (pair.type) params.type = pair.type;
         if (entrySelect && entrySelect.value) params.entryId = entrySelect.value;
+        if (styleSelect && styleSelect.value) params.style = styleSelect.value;
 
         var url = Craft.getUrl(base, params);
         var request = ++pending;
@@ -160,5 +193,6 @@
     refresh.addEventListener('click', render);
     if (select) select.addEventListener('change', loadEntries);
     if (entrySelect) entrySelect.addEventListener('change', render);
+    if (styleSelect) styleSelect.addEventListener('change', render);
 })();
 {% endjs %}

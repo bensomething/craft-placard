@@ -52,6 +52,60 @@ class SettingsTest extends TestCase
         $this->assertSame('#ff0000', $resolved->titleColor);
     }
 
+    public function testStyleOverridesWinOverEntryType(): void
+    {
+        $settings = new Settings([
+            'sections' => ['news' => ['position' => 'top', 'align' => 'center']],
+            'entryTypes' => ['article' => ['position' => 'middle']],
+            'styles' => ['light' => [
+                'name' => 'Light',
+                'position' => 'between',
+                'title' => ['color' => '#111111'],
+            ]],
+        ]);
+
+        $resolved = $settings->forTypes('news', 'article', 'light');
+
+        $this->assertSame('between', $resolved->position);
+        $this->assertSame('center', $resolved->align);
+        $this->assertSame('#111111', $resolved->titleColor);
+        // An element array changes only the keys it names.
+        $this->assertSame(116, $resolved->titleSize);
+    }
+
+    public function testUnknownOrEmptyStyleKeepsTypeSettings(): void
+    {
+        $settings = new Settings([
+            'entryTypes' => ['article' => ['position' => 'middle']],
+            'styles' => ['light' => ['position' => 'top']],
+        ]);
+
+        $this->assertSame('middle', $settings->forTypes(null, 'article', 'gone')->position);
+        $this->assertSame('middle', $settings->forTypes(null, 'article', '')->position);
+        $this->assertSame('middle', $settings->forTypes(null, 'article')->position);
+    }
+
+    public function testStylesCannotBeOverridden(): void
+    {
+        $settings = new Settings([
+            'styles' => ['light' => ['styles' => [], 'position' => 'top']],
+        ]);
+
+        $this->assertSame($settings->styles, $settings->forTypes(null, null, 'light')->styles);
+    }
+
+    public function testStyleNamesFallBackToHandles(): void
+    {
+        $settings = new Settings([
+            'styles' => [
+                'light' => ['name' => 'Light Mode'],
+                'dark' => ['position' => 'top'],
+            ],
+        ]);
+
+        $this->assertSame(['light' => 'Light Mode', 'dark' => 'dark'], $settings->styleNames());
+    }
+
     public function testReturnsACopy(): void
     {
         $settings = new Settings(['sections' => ['news' => ['position' => 'top']]]);

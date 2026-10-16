@@ -1,5 +1,14 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Added
+- `styles` setting, for named overrides editors choose between per entry. The Social Image field shows a Style dropdown when there are any, and its settings choose which it offers. Styles apply after section and entry type overrides, and the settings page previews each one.
+- `craft.placard.previewImageUrl(entry)`, as `shareImageUrl()` but with a card that also renders drafts for logged-in users, for CP templates like a field layout's Template element.
+
+### Changed
+- `background.useShareImage` uses the custom image or image field picked in the entry's Social Image field. With the card picked, or no field, it still uses the first image in `imageFieldHandles`.
+
 ## 1.0.0-beta.6 - 2026-10-15
 
 ### Added

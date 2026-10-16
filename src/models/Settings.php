@@ -2,6 +2,7 @@
 
 namespace bensomething\placard\models;
 
+use bensomething\placard\fields\SocialImage;
 use Craft;
 use craft\base\Model;
 use craft\elements\Entry;
@@ -307,8 +308,17 @@ class Settings extends Model
      */
     public array $entryTypes = [];
 
+    /**
+     * Named override sets editors choose between in the Social Image field, keyed
+     * by handle. Applied after section and entry type overrides, so the editor's
+     * choice wins. `name` labels the style in the field, else the handle is used.
+     *
+     * @var array<string, array<array-key, mixed>>
+     */
+    public array $styles = [];
+
     /** The fallback image is for pages with no entry, so it can't vary by type. */
-    public const NOT_OVERRIDABLE = ['sections', 'entryTypes', 'defaultImagePath'];
+    public const NOT_OVERRIDABLE = ['sections', 'entryTypes', 'styles', 'defaultImagePath'];
 
     public function __construct($config = [])
     {
@@ -362,24 +372,32 @@ class Settings extends Model
         return $config;
     }
 
-    public function forEntry(Entry $entry): self
+    /**
+     * The entry's settings, with the style chosen in its Social Image field. Pass
+     * `$style` to use another instead, or `''` for none.
+     */
+    public function forEntry(Entry $entry, ?string $style = null): self
     {
+        $style ??= SocialImage::valueFor($entry)?->style;
+
         // Nested entries have no section, and their owner's doesn't apply to them.
-        return $this->forTypes($entry->getSection()?->handle, $entry->getType()->handle);
+        return $this->forTypes($entry->getSection()?->handle, $entry->getType()->handle, $style);
     }
 
-    /** A copy with the section's overrides applied, then the entry type's. */
-    public function forTypes(?string $sectionHandle, ?string $entryTypeHandle): self
+    /** A copy with the section's overrides applied, then the entry type's, then the style's. */
+    public function forTypes(?string $sectionHandle, ?string $entryTypeHandle, ?string $style = null): self
     {
         $settings = clone $this;
 
         foreach ([
             $sectionHandle !== null ? ($this->sections[$sectionHandle] ?? null) : null,
             $entryTypeHandle !== null ? ($this->entryTypes[$entryTypeHandle] ?? null) : null,
+            $style ? ($this->styles[$style] ?? null) : null,
         ] as $overrides) {
             if (!is_array($overrides)) {
                 continue;
             }
+            unset($overrides['name']);
 
             // Expanded, so an element array changes only the keys it names.
             foreach (self::expand($overrides) as $name => $value) {
@@ -390,6 +408,22 @@ class Settings extends Model
         }
 
         return $settings;
+    }
+
+    /**
+     * Each style's label, keyed by handle.
+     *
+     * @return array<string, string>
+     */
+    public function styleNames(): array
+    {
+        $names = [];
+        foreach ($this->styles as $handle => $style) {
+            $name = $style['name'] ?? null;
+            $names[(string)$handle] = is_string($name) && $name !== '' ? $name : (string)$handle;
+        }
+
+        return $names;
     }
 
     /** The configured font for an element, or empty for the bundled one. */

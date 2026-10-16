@@ -45,9 +45,9 @@ class Generator extends Component
      * Resolves an entry's card and fires EVENT_DEFINE_CARD. Pass the result's
      * `settings` to generate().
      */
-    public function defineCard(Entry $entry): DefineCardEvent
+    public function defineCard(Entry $entry, ?string $style = null): DefineCardEvent
     {
-        $settings = $this->settings->forEntry($entry);
+        $settings = $this->settings->forEntry($entry, $style);
         $resolved = $this->withSettings($settings);
 
         // Entry colours go into this card's copy of the settings, which is what draws it.
@@ -110,21 +110,11 @@ class Generator extends Component
      */
     public function shareImage(Entry $entry): ?Asset
     {
-        $value = $this->socialImageValue($entry);
+        $value = SocialImage::valueFor($entry);
 
-        if ($value === null) {
-            return $this->firstImage($entry, $this->settings->forEntry($entry)->imageFieldHandles);
-        }
-
-        if ($value->source === SocialImageValue::CUSTOM && $value->assetId) {
-            return Asset::find()->id($value->assetId)->kind('image')->one();
-        }
-
-        if ($handle = $value->getFieldHandle()) {
-            return $this->firstImage($entry, [$handle]);
-        }
-
-        return null;
+        return $value !== null
+            ? $this->chosenImage($entry, $value)
+            : $this->firstImage($entry, $this->settings->forEntry($entry)->imageFieldHandles);
     }
 
     /** Absolute URL of the image an entry shares, cropped to card size, or the card itself. */
@@ -135,24 +125,21 @@ class Generator extends Component
         return ($asset ? $this->assetShareUrl($asset) : null) ?? $this->cardUrl($entry);
     }
 
+    /**
+     * As shareImageUrl(), but the card comes from the logged-in preview route, which
+     * also serves drafts and disabled entries. For the CP, not front-end templates.
+     */
+    public function previewImageUrl(Entry $entry): string
+    {
+        $asset = $this->shareImage($entry);
+
+        return ($asset ? $this->assetShareUrl($asset) : null) ?? $this->previewUrl($entry);
+    }
+
     /** An asset's URL cropped to the card's size. */
     public function assetShareUrl(Asset $asset): ?string
     {
         return $asset->getUrl(['width' => Settings::WIDTH, 'height' => Settings::HEIGHT, 'mode' => 'crop']) ?: null;
-    }
-
-    private function socialImageValue(Entry $entry): ?SocialImageValue
-    {
-        foreach ($entry->getFieldLayout()?->getCustomFields() ?? [] as $field) {
-            if ($field instanceof SocialImage) {
-                $value = $entry->getFieldValue($field->handle);
-
-                // A source the field no longer offers falls back to its default.
-                return $value instanceof SocialImageValue ? $field->effectiveValue($value, $entry) : null;
-            }
-        }
-
-        return null;
     }
 
     /** Most recently updated entry of a section and/or entry type, for the settings preview. */
@@ -397,9 +384,24 @@ class Generator extends Component
         return $generator;
     }
 
+    /** The Social Image field's custom image or image field, or null for the card. */
+    private function chosenImage(Entry $entry, SocialImageValue $value): ?Asset
+    {
+        if ($value->source === SocialImageValue::CUSTOM && $value->assetId) {
+            return Asset::find()->id($value->assetId)->kind('image')->one();
+        }
+
+        if ($handle = $value->getFieldHandle()) {
+            return $this->firstImage($entry, [$handle]);
+        }
+
+        return null;
+    }
+
     /**
-     * The background field's image, else (with `useImageAsBackground`) the share
-     * image. Null leaves generate() to use `backgroundImagePath`.
+     * The background field's image, else (with `useImageAsBackground`) the image
+     * picked in the Social Image field, else the first in `imageFieldHandles`. Null
+     * leaves generate() to use `backgroundImagePath`.
      */
     private function backgroundImage(Entry $entry): ?Asset
     {
@@ -407,7 +409,10 @@ class Generator extends Component
         $asset = $field !== '' ? $this->firstImage($entry, [$field]) : null;
 
         if ($asset === null && $this->settings->useImageAsBackground) {
-            $asset = $this->firstImage($entry, $this->settings->imageFieldHandles);
+            // Choosing the card picks no image, so it falls through to the fields.
+            $value = SocialImage::valueFor($entry);
+            $asset = ($value ? $this->chosenImage($entry, $value) : null)
+                ?? $this->firstImage($entry, $this->settings->imageFieldHandles);
         }
 
         return $asset;

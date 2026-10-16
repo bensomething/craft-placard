@@ -44,3 +44,15 @@
     options: defaultOptions,
     value: field.defaultSource,
 }) }}
+
+{% if styleNames %}
+    {{ forms.checkboxSelectField({
+        label: 'Styles'|t('placard'),
+        instructions: 'Which styles from the config editors can choose for the generated card.'|t('placard'),
+        id: 'styles',
+        name: 'styles',
+        options: styleNames,
+        values: field.styles,
+        showAllOption: true,
+    }) }}
+{% endif %}

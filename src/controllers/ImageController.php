@@ -51,13 +51,15 @@ class ImageController extends Controller
         $sectionHandle = $this->request->getQueryParam('section') ?: null;
         $typeHandle = $this->request->getQueryParam('type') ?: null;
         $entryId = (int)$this->request->getQueryParam('entryId') ?: null;
+        // '' for none, rather than the entry's own choice.
+        $style = (string)$this->request->getQueryParam('style', '');
         // Looked up within the pair, so the picker can't be pointed elsewhere.
         $entry = $entryId
             ? $generator->sampleEntryQuery($sectionHandle, $typeHandle)?->id($entryId)->one()
             : $generator->sampleEntry($sectionHandle, $typeHandle);
 
         if ($entry) {
-            $card = $generator->defineCard($entry);
+            $card = $generator->defineCard($entry, $style);
             $png = $generator->generate(
                 $card->title,
                 $card->label,
@@ -76,7 +78,7 @@ class ImageController extends Controller
                 date('j F Y'),
                 Craft::t('placard', 'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'),
                 null,
-                Plugin::getInstance()->getSettings()->forTypes($sectionHandle, $typeHandle),
+                Plugin::getInstance()->getSettings()->forTypes($sectionHandle, $typeHandle, $style),
             );
         }
 

@@ -70,6 +70,7 @@ return [
 
     // colorField takes the colour from a field on the entry, falling back to color.
     // The image is imageField's, then the share image (if useShareImage), then imagePath.
+    // The share image is the Social Image field's pick, else the first in imageFieldHandles.
     'background' => [
         'color' => '#000000',
         'colorField' => '',
@@ -108,5 +109,15 @@ return [
     ],
     'entryTypes' => [
         // 'featuredArtist' => ['meta' => false, 'title' => ['color' => '#ffcc00']],
+    ],
+
+    // Overrides editors choose per entry in the Social Image field, applied after
+    // sections and entry types. name labels the style, else the handle is used.
+    'styles' => [
+        // 'light' => [
+        //     'name' => 'Light',
+        //     'background' => '#ffffff',
+        //     'title' => ['color' => '#111111'],
+        // ],
     ],
 ];

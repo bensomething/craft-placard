@@ -27,6 +27,19 @@
             }) }}
         </div>
 
+        {# Styles only change the card, so this shows while the card is what's shared (see update()). #}
+        {% if styleOptions %}
+            <div class="placard-si__style{{ value.source != 'card' ? ' hidden' }}">
+                {{ forms.select({
+                    id: field.handle ~ '-style',
+                    name: field.handle ~ '[style]',
+                    options: styleOptions,
+                    value: value.style ?? '',
+                    inputAttributes: { aria: { label: 'Style'|t('placard') } },
+                }) }}
+            </div>
+        {% endif %}
+
         <div class="placard-si__custom{{ value.source != 'custom' ? ' hidden' }}">
             {{ forms.elementSelect({
                 id: field.handle ~ '-asset',
@@ -43,7 +56,7 @@
 
 <style>
     .placard-si { display: flex; flex-direction: column; gap: 12px; }
-    .placard-si__source .select { max-width: 100%; }
+    .placard-si__source .select, .placard-si__style .select { max-width: 100%; }
     .placard-si__controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
     .placard-si__controls > .hidden { display: none; }
     .placard-si__custom .elementselect { margin: 0; }
@@ -56,6 +69,7 @@
 
     var select = root.querySelector('.placard-si__source select');
     var custom = root.querySelector('.placard-si__custom');
+    var style = root.querySelector('.placard-si__style');
     var preview = root.querySelector('.placard-sp');
     var img = root.querySelector('.placard-sp__img');
     var cardUrl = root.dataset.cardUrl;
@@ -99,11 +113,12 @@
 
     function update() {
         custom.classList.toggle('hidden', select.value !== 'custom');
+        var assetId = resolve();
+        if (style) style.classList.toggle('hidden', !!assetId || isEmpty());
         if (!img) return;
 
         preview.classList.toggle('is-empty', isEmpty());
 
-        var assetId = resolve();
         if (!assetId) {
             if (cardUrl) show(cardUrl);
             return;
@@ -121,6 +136,8 @@
     }
 
     if (preview) preview.classList.toggle('is-empty', isEmpty());
+    // An image field with nothing in it shares the card, so its style applies.
+    if (style) style.classList.toggle('hidden', !!resolve() || isEmpty());
     select.addEventListener('change', update);
 
     // Watch the element lists, as picking or removing an image fires no change event.

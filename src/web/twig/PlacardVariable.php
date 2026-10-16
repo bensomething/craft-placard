@@ -41,6 +41,19 @@ class PlacardVariable
         return Plugin::getInstance()->getGenerator()->shareImageUrl($entry);
     }
 
+    /**
+     * As shareImageUrl(), but it also previews drafts and disabled entries to logged-in
+     * users who can view them. For CP templates, like a field layout's Template element.
+     */
+    public function previewImageUrl(mixed $entry = null): ?string
+    {
+        if (!$entry instanceof Entry || !$entry->id) {
+            return $this->default();
+        }
+
+        return Plugin::getInstance()->getGenerator()->previewImageUrl($entry);
+    }
+
     /** Whether the entry shares its own image rather than the card. Safe to call on any value. */
     public function entryHasImage(mixed $entry): bool
     {

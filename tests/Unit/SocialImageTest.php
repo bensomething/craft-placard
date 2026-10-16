@@ -35,13 +35,21 @@ class SocialImageTest extends TestCase
         $field = new SocialImage();
 
         $this->assertSame(
-            ['source' => 'custom', 'assetId' => 5],
+            ['source' => 'custom', 'assetId' => 5, 'style' => null],
             $field->serializeValue(['source' => 'custom', 'assetId' => 5], null),
         );
         $this->assertSame(
-            ['source' => 'card', 'assetId' => null],
-            $field->serializeValue(['source' => 'card', 'assetId' => 5], null),
+            ['source' => 'card', 'assetId' => null, 'style' => 'light'],
+            $field->serializeValue(['source' => 'card', 'assetId' => 5, 'style' => 'light'], null),
         );
+    }
+
+    public function testNormalizesEmptyStyleToNull(): void
+    {
+        $field = new SocialImage();
+
+        $this->assertNull($field->normalizeValue(['source' => 'card', 'style' => ''], null)->style);
+        $this->assertSame('light', $field->normalizeValue('{"source":"card","style":"light"}', null)->style);
     }
 
     public function testCardCountsAsEmpty(): void
@@ -51,6 +59,7 @@ class SocialImageTest extends TestCase
 
         $this->assertTrue($field->isValueEmpty(['source' => 'card'], $element));
         $this->assertFalse($field->isValueEmpty(['source' => 'custom'], $element));
+        $this->assertFalse($field->isValueEmpty(['source' => 'card', 'style' => 'light'], $element));
     }
 
     public function testOptionsAreCardCustomThenGroupedFields(): void
@@ -113,6 +122,25 @@ class SocialImageTest extends TestCase
             'defaultSource' => 'card',
         ]);
         $this->assertSame('field:hero', $field->effectiveValue($missing, $entry)->source);
+    }
+
+    public function testEffectiveValueDropsStylesTheFieldDoesNotOffer(): void
+    {
+        $entry = $this->entryWithAssetFields(['hero']);
+        $value = new SocialImageValue(['source' => 'card', 'style' => 'dark']);
+
+        $this->assertSame('dark', (new SocialImage())->effectiveValue($value, $entry)->style);
+        $this->assertSame('dark', (new SocialImage(['styles' => ['dark']]))->effectiveValue($value, $entry)->style);
+        $this->assertNull((new SocialImage(['styles' => ['light']]))->effectiveValue($value, $entry)->style);
+    }
+
+    public function testEffectiveValueKeepsStyleWhenSourceFallsBack(): void
+    {
+        $value = new SocialImageValue(['source' => 'field:gone', 'style' => 'dark']);
+        $resolved = (new SocialImage())->effectiveValue($value, $this->entryWithAssetFields(['hero']));
+
+        $this->assertSame('card', $resolved->source);
+        $this->assertSame('dark', $resolved->style);
     }
 
     public function testOptionsListAssetFieldsInsideMatrixFields(): void

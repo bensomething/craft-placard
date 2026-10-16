@@ -47,6 +47,32 @@ class SocialImage extends Field
     /** Also the fallback for a choice the settings no longer allow. */
     public string $defaultSource = SocialImageValue::CARD;
 
+    /**
+     * `*` or handles from the `styles` config. With none to offer, there's no
+     * style dropdown.
+     *
+     * @var string|string[]
+     */
+    public string|array $styles = '*';
+
+    /**
+     * The entry's Social Image value, narrowed by {@see effectiveValue()}, or null
+     * when its layout has no Social Image field.
+     */
+    public static function valueFor(Entry $entry): ?SocialImageValue
+    {
+        foreach ($entry->getFieldLayout()?->getCustomFields() ?? [] as $field) {
+            if ($field instanceof self) {
+                $value = $entry->getFieldValue($field->handle);
+
+                // A source the field no longer offers falls back to its default.
+                return $value instanceof SocialImageValue ? $field->effectiveValue($value, $entry) : null;
+            }
+        }
+
+        return null;
+    }
+
     public static function displayName(): string
     {
         return Craft::t('placard', 'Social Image');
@@ -91,9 +117,12 @@ class SocialImage extends Field
             $assetId = reset($assetId) ?: null;
         }
 
+        $style = $value['style'] ?? null;
+
         return new SocialImageValue([
             'source' => $source !== '' ? $source : $this->defaultSource,
             'assetId' => $assetId ? (int)$assetId : null,
+            'style' => is_string($style) && $style !== '' ? $style : null,
         ]);
     }
 
@@ -106,6 +135,7 @@ class SocialImage extends Field
             'source' => $value->source,
             // Dropped when unused, so switching away and saving clears it.
             'assetId' => $value->source === SocialImageValue::CUSTOM ? $value->assetId : null,
+            'style' => $value->style,
         ];
     }
 
@@ -115,7 +145,7 @@ class SocialImage extends Field
         $value = $this->normalizeValue($value, $element);
 
         // The card is the fallback for every choice, so it counts as "nothing picked".
-        return $value->source === SocialImageValue::CARD;
+        return $value->source === SocialImageValue::CARD && $value->style === null;
     }
 
     protected function inputHtml(mixed $value, ?ElementInterface $element, bool $inline): string
@@ -140,19 +170,17 @@ class SocialImage extends Field
         $value = $this->effectiveValue($value, $element);
 
         $asset = $value->assetId ? Asset::find()->id($value->assetId)->kind('image')->one() : null;
-        $settings = Plugin::getInstance()->getSettings()->forEntry($element);
-
         // The logged-in preview route, unlike the public one, renders drafts.
         $generator = Plugin::getInstance()->getGenerator();
         $cardUrl = $element->id ? $generator->previewUrl($element) : null;
-        $shareAsset = $element->id ? $generator->shareImage($element) : null;
-        $imageUrl = ($shareAsset ? $generator->assetShareUrl($shareAsset) : null) ?? $cardUrl;
+        $imageUrl = $element->id ? $generator->previewImageUrl($element) : null;
 
         return $view->renderTemplate('placard/_field/input', [
             'field' => $this,
             'value' => $value,
             'entry' => $element,
             'options' => $options,
+            'styleOptions' => $this->styleOptions(),
             'asset' => $asset,
             'imageUrl' => $imageUrl,
             'cardUrl' => $cardUrl,
@@ -184,6 +212,7 @@ class SocialImage extends Field
             'field' => $this,
             'assetFields' => $assetFields,
             'defaultFields' => $defaultFields,
+            'styleNames' => Plugin::getInstance()->getSettings()->styleNames(),
         ]);
     }
 
@@ -232,11 +261,34 @@ class SocialImage extends Field
     }
 
     /**
+     * The styles editors can choose, as handle => label, after "Default" for none.
+     * Empty when the config has none this field offers.
+     *
+     * @return array<string, string>
+     */
+    public function styleOptions(): array
+    {
+        $names = array_filter(
+            Plugin::getInstance()?->getSettings()->styleNames() ?? [],
+            fn(string $handle) => $this->allowsStyle($handle),
+            ARRAY_FILTER_USE_KEY,
+        );
+
+        return $names ? ['' => Craft::t('placard', 'Default'), ...$names] : [];
+    }
+
+    /**
      * Applied when sharing as well as in the input, so narrowed settings or a
      * hand-made request can't share something the field doesn't offer.
      */
     public function effectiveValue(SocialImageValue $value, Entry $entry): SocialImageValue
     {
+        // A style dropped from the field's settings is no style. One missing from
+        // the config is skipped when the settings are resolved.
+        if ($value->style !== null && !$this->allowsStyle($value->style)) {
+            $value = new SocialImageValue(['source' => $value->source, 'assetId' => $value->assetId]);
+        }
+
         $allowed = array_column($this->options($entry), 'value');
         if (in_array($value->source, $allowed, true)) {
             return $value;
@@ -248,7 +300,12 @@ class SocialImage extends Field
             ? $this->defaultSource
             : ($fallbacks[0] ?? $allowed[0] ?? SocialImageValue::CARD);
 
-        return new SocialImageValue(['source' => $source, 'assetId' => null]);
+        return new SocialImageValue(['source' => $source, 'assetId' => null, 'style' => $value->style]);
+    }
+
+    private function allowsStyle(string $handle): bool
+    {
+        return $this->styles === '*' || in_array($handle, (array)$this->styles, true);
     }
 
     /**

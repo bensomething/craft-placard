@@ -23,7 +23,7 @@ php craft plugin/install placard
 
 Copy `example.config.php` to `config/placard.php`. **Settings → Plugins → Placard** previews the card your config produces.
 
-`sections` and `entryTypes` override any setting except `defaultImagePath`, keyed by handle. Entry types win over sections.
+`sections` and `entryTypes` override any setting except `defaultImagePath`, keyed by handle. Entry types win over sections. `styles` are named overrides editors choose between per entry (see *Styles*).
 
 ```php
 return [
@@ -67,6 +67,7 @@ Card text templates reach nested fields themselves: `'{seo.one().seoTitle ?? tit
 | Helper | Returns |
 |---|---|
 | `shareImageUrl(entry)` | The image the entry shares (its Social Image field's choice, else the first image in `imageFieldHandles`, else the card). Anything that isn't an entry gets `default()` |
+| `previewImageUrl(entry)` | As `shareImageUrl()`, but the card also renders drafts for logged-in users. For the CP, like a field layout's Template element (`craft.placard.previewImageUrl(element)`), not front-end templates |
 | `entryHasImage(entry)` | Whether that's one of the entry's own images |
 | `url(entry)` | The card's URL. Only live entries are served, so drafts can't be read from it |
 | `default()` | `defaultImagePath`, for pages with no entry, or null when it isn't set |
@@ -91,6 +92,28 @@ This overrides the section's SEOmatic settings. SEOmatic doesn't transform an im
 ## Social Image field
 
 Lets editors choose what each entry shares (the generated card, a custom image, or one of the entry's image fields) with a preview that updates as they edit. Its settings choose which sources are offered, which image fields are listed and the default. Asset fields inside the entry's Matrix and Content Block fields are listed too, as *SEO → SEO Image*. A layout can only hold one, and entries without URLs show a note instead.
+
+The field must be in the entry type's own layout (a tab is fine), not inside a Matrix or Content Block field.
+
+### Styles
+
+With `styles` in the config, the field also offers a Style dropdown for the generated card. Each style is a set of overrides like `sections`, applied after the section's and entry type's, so the editor's choice wins. `name` labels it in the dropdown, else the handle is used.
+
+```php
+'styles' => [
+    'light' => [
+        'name' => 'Light',
+        'background' => '#ffffff',
+        'title' => ['color' => '#111111'],
+    ],
+    'photo' => [
+        'name' => 'Photo',
+        'background' => ['imageField' => 'hero', 'opacity' => 0.6],
+    ],
+],
+```
+
+The field's settings choose which styles it offers. The dropdown only shows while the card is what's shared, and **Settings → Plugins → Placard** previews each style.
 
 ## Card text
 
@@ -146,6 +169,7 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `imageFieldHandles` | `['seoImage', 'hero', 'featuredImage']` | Share image fields for entries without a Social Image field |
 | `defaultImagePath` | `img/og-default.png` | Returned by `default()` |
 | `sections`, `entryTypes` | `[]` | Overrides by handle |
+| `styles` | `[]` | Named overrides editors choose per entry, see *Styles* |
 | `label`, `title`, `description`, `meta` | | Each element's settings, see *Elements* |
 | `logo`, `background`, `border` | | See below |
 
@@ -204,14 +228,14 @@ A string sets just the path, and `false` hides the logo.
 ],
 ```
 
-A string sets just the colour. The image is the `imageField`'s, then the share image (with `useShareImage`), then `imagePath`.
+A string sets just the colour. The image is the `imageField`'s, then the share image (with `useShareImage`), then `imagePath`. With a Social Image field, the share image is the custom image or image field the editor picked. With the card picked, or no field, it's the first image in `imageFieldHandles`.
 
 | Key | Default | Notes |
 |---|---|---|
 | `color` | `#000000` | Canvas colour |
 | `colorField` | none | A Color field (or hex text field) to take the colour from, falling back to `color` |
 | `imageField` | none | Asset field for the background image |
-| `useShareImage` | `false` | Fall back to the share image as the background |
+| `useShareImage` | `false` | Fall back to the share image as the background: the Social Image field's pick, else the first image in `imageFieldHandles` |
 | `imagePath` | none | Fixed background image, used last |
 | `fit` | `cover` | `cover` (cropped around the focal point) or `contain` |
 | `padding`, `radius` | `0` | Inset and corner radius in px |

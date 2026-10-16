@@ -67,7 +67,7 @@ class Plugin extends BasePlugin
         );
 
         // isMultiInstance() only stops the same field going in twice. This stops two
-        // different ones, as only the first would be used (see Generator::socialImageValue()).
+        // different ones, as only the first would be used (see SocialImage::valueFor()).
         Event::on(
             FieldLayout::class,
             Model::EVENT_DEFINE_RULES,
@@ -128,6 +128,7 @@ class Plugin extends BasePlugin
                 'settings' => $this->getSettings(),
                 'hasConfigFile' => Craft::$app->getConfig()->getConfigFromFile('placard') !== [],
                 'previewOptions' => $this->previewOptions(),
+                'styleNames' => $this->getSettings()->styleNames(),
                 'unknownHandles' => $this->unknownHandles(),
             ]);
     }
