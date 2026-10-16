@@ -1,6 +1,6 @@
 # Release Notes for Placard
 
-## Unreleased
+## 1.0.0-beta.7 - 2026-10-16
 
 ### Added
 - `styles` setting, for named overrides editors choose between per entry. The Social Image field shows a Style dropdown when there are any, and its settings choose which it offers. Styles apply after section and entry type overrides, and the settings page previews each one.
