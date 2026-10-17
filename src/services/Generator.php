@@ -23,8 +23,9 @@ use ImagickPixel;
 use yii\base\Component;
 
 /**
- * Renders social cards with Imagick: label, title, description and meta in one
- * stack, with an optional logo beside the label and a faint background image.
+ * Renders social cards with Imagick: label, title, description and meta stacked in
+ * layout order, with an optional logo beside the label or on its own row, and a faint
+ * background image.
  */
 class Generator extends Component
 {
@@ -221,19 +222,30 @@ class Generator extends Component
 
         $this->drawBorder($img);
 
-        // Drawn in the label's row rather than anchored on its own.
+        // Drawn in the label's row (`logoLabel`) or a row of its own (`logo`).
         $logo = $s->showLogo ? $this->loadLogo($s->logoHeight > 0 ? $s->logoHeight : Settings::LOGO_SIZE) : null;
 
-        // Elements flow in one stack, so variable-height blocks push each other
-        // along rather than overlap.
+        // Elements flow in one stack, in layout order, so variable-height blocks push
+        // each other along rather than overlap.
         $fonts = [];
         foreach (Settings::FONTS as $element => $bundled) {
             $fonts[$element] = $this->font($s->fontPathFor($element), $bundled);
         }
         $texts = ['label' => $label, 'title' => $title, 'description' => $description, 'meta' => $meta];
 
+        $items = [];
+        foreach ($s->layoutGroups() as $group => $groupItems) {
+            foreach ($groupItems as $item) {
+                $items[] = [$group, $item];
+            }
+        }
+
         $blocks = [];
-        foreach (Settings::ELEMENTS as $element => $fallback) {
+        foreach ($items as [$group, $item]) {
+            // `logoLabel` is the label with the logo beside it, and `logo` the logo
+            // alone, drawn as a label with no text.
+            $element = in_array($item, ['logoLabel', 'logo'], true) ? 'label' : $item;
+            $fallback = Settings::ELEMENTS[$element];
             // Config values skip validation, so hold the floors here.
             $size = (int)$s->{$element . 'Size'};
             $lineHeight = (float)$s->{$element . 'LineHeight'};
@@ -246,10 +258,10 @@ class Generator extends Component
                 'uppercase' => (bool)$s->{$element . 'Uppercase'},
             ];
             // Hidden elements count as empty, so the stack closes up.
-            $text = $s->{'show' . ucfirst($element)}
+            $text = ($item !== 'logo' && $s->{'show' . ucfirst($element)})
                 ? $this->prepText($texts[$element] ?? null, $style['uppercase'])
                 : '';
-            $blockLogo = ($logo !== null && $element === 'label') ? $logo : null;
+            $blockLogo = $item !== $element ? $logo : null;
 
             if ($text === '') {
                 // An empty or hidden label still leaves the logo its slot.
@@ -269,7 +281,8 @@ class Generator extends Component
                     'logoTop' => 0.0,
                     'inkTop' => 0.0,
                     'inkBottom' => 0.0,
-                    'gap' => (float)$s->gapAfter($element),
+                    'gap' => (float)$s->gapAfter($item === 'logo' ? 'logo' : $element),
+                    'group' => $group,
                 ];
                 $blocks[] = $block;
 
@@ -332,22 +345,31 @@ class Generator extends Component
                 'inkTop' => $inkTop,
                 'inkBottom' => $inkBottom,
                 'gap' => (float)$s->gapAfter($element),
+                'group' => $group,
             ];
         }
 
         // Each element keeps its own gap below it, bar the last. `between` also shares
-        // the slack between the padded ends equally across the gaps. Placed by visible
-        // extent, not line boxes, which would sit text low.
+        // the slack between the padded ends equally across the gaps between groups.
+        // Placed by visible extent, not line boxes, which would sit text low.
         if ($blocks !== []) {
             $gaps = array_slice(array_column($blocks, 'gap'), 0, -1);
+            // Indexes of the gaps that end a group.
+            $breaks = array_keys(array_filter(
+                $gaps,
+                fn(int $i): bool => $blocks[$i]['group'] !== $blocks[$i + 1]['group'],
+                ARRAY_FILTER_USE_KEY,
+            ));
             $content = array_sum(array_column($blocks, 'height'));
             $trimTop = $blocks[0]['inkTop'];
             $trimBottom = $blocks[count($blocks) - 1]['inkBottom'];
             $visibleContent = $content - $trimTop - $trimBottom;
 
-            if ($s->position === 'between' && $gaps !== []) {
-                $slack = max(0, ($h - $pad['top'] - $pad['bottom'] - $visibleContent - array_sum($gaps)) / count($gaps));
-                $gaps = array_map(fn(float $gap): float => $gap + $slack, $gaps);
+            if ($s->position === 'between' && $breaks !== []) {
+                $slack = max(0, ($h - $pad['top'] - $pad['bottom'] - $visibleContent - array_sum($gaps)) / count($breaks));
+                foreach ($breaks as $i) {
+                    $gaps[$i] += $slack;
+                }
             }
 
             $visible = $visibleContent + array_sum($gaps);

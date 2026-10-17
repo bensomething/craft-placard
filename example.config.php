@@ -7,6 +7,11 @@
 return [
     // Layout. position: top, middle, bottom or between. align: left, center or right.
     'position' => 'bottom',
+    // What's drawn, from the top: label, title, description, meta, logo (a row of its
+    // own) or logoLabel (the logo beside the label). An array groups items, and between
+    // spaces groups apart, keeping each together: [['logoLabel'], ['title', 'meta']].
+    // Items left out aren't drawn.
+    'layout' => ['logoLabel', 'title', 'description', 'meta'],
     'align' => 'left',
     // caps: placed by cap height to last baseline. ink: by what the letters reach.
     'textEdges' => 'caps',
@@ -19,7 +24,7 @@ return [
     // e.g. '{summary ?: seoDescription}'. A string sets just the text, false hides it.
     // Sizes are px on the 1200×630 card. lineHeight is a multiple of the size.
     // colorField takes the colour from a field on the entry, falling back to color.
-    // fontPath overrides the fontPath below. gap overrides gap (not on meta).
+    // fontPath overrides the fontPath below. gap overrides gap.
     'label' => [
         'text' => '{type.name}',
         'show' => true,

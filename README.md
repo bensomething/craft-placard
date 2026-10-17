@@ -160,11 +160,12 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 
 | Setting | Default | Notes |
 |---|---|---|
-| `position` | `bottom` | `top`, `middle`, `bottom` or `between` (first and last at the edges) |
+| `position` | `bottom` | `top`, `middle`, `bottom` or `between` (first and last groups at the edges) |
+| `layout` | `['logoLabel', 'title', 'description', 'meta']` | What's drawn, in order, and how it's grouped, see *Layout* |
 | `align` | `left` | `left`, `center` or `right` |
 | `textEdges` | `caps` | Place by cap height to baseline (`caps`) or by the letters' ink (`ink`) |
 | `padding` | `80` | Inset for the text in px, as CSS shorthand: one value, `[vertical, horizontal]`, `[top, horizontal, bottom]` or `[top, right, bottom, left]`. Text wraps at the width between the sides, and `center` centres within them |
-| `gap` | `24` | Space below each element in px, between line boxes, so the visible space also takes in line height and descenders. With `between` it's a minimum. Elements can set their own |
+| `gap` | `24` | Space below each element in px, between line boxes, so the visible space also takes in line height and descenders. With `between`, gaps between groups are minimums. Elements can set their own |
 | `fontPath` | Inter | Font for every element, unless it sets its own. Unset, each element uses the bundled Inter in its own weight (Bold title, Medium label, Regular description and meta) |
 | `imageFieldHandles` | `['seoImage', 'hero', 'featuredImage']` | Share image fields for entries without a Social Image field |
 | `defaultImagePath` | `img/og-default.png` | Returned by `default()` |
@@ -174,6 +175,22 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `logo`, `background`, `border` | | See below |
 
 Element, logo, background and border settings are each an array under their name. In `sections` and `entryTypes`, an array changes only the keys it names, so `'border' => ['color' => '#ff0000']` keeps the border's widths.
+
+### Layout
+
+`layout` lists what's drawn, from the top: `label`, `title`, `description`, `meta`, `logo` for the logo on a row of its own, and `logoLabel` for the logo beside the label. An array groups items. Anything left out isn't drawn.
+
+```php
+'position' => 'between',
+'layout' => [
+    ['logoLabel'],
+    ['title', 'description', 'meta'],
+],
+```
+
+Items in a group keep their own gaps. With `between`, the first group sits at the top, the last at the bottom, and any between are spaced evenly, so this puts the logo and label at the top and the rest together at the bottom. Other positions stack the groups as one. Each item can appear once, and `logoLabel` counts as both the logo and the label.
+
+Leave `layout` unset and cards stack as before, with each element its own group. Like any setting, `sections`, `entryTypes` and `styles` can override it.
 
 ### Elements
 
@@ -201,7 +218,7 @@ Element, logo, background and border settings are each an array under their name
 | `color` | `#a3a3a3`, `#ffffff`, `#a3a3a3`, `#a3a3a3` | Text colour |
 | `colorField` | none | A Color field (or hex text field) to take the colour from, falling back to `color` |
 | `fontPath` | none | The element's font, over `fontPath` |
-| `gap` | none | Space below the element, over `gap`. Not on meta, which is always last |
+| `gap` | none | Space below the element, over `gap` |
 
 ### Logo
 

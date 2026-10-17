@@ -262,11 +262,10 @@ class SettingsTest extends TestCase
 
     public function testElementKeysAnElementDoesNotHaveAreSkipped(): void
     {
-        // Meta is always last, so it has no gap.
-        $settings = new Settings(['meta' => ['gap' => 10, 'nonsense' => 1, 'size' => 20]]);
+        $settings = new Settings(['meta' => ['nonsense' => 1, 'size' => 20]]);
 
         $this->assertSame(20, $settings->metaSize);
-        $this->assertFalse(property_exists($settings, 'metaGap'));
+        $this->assertFalse(property_exists($settings, 'metaNonsense'));
     }
 
     public function testLogoBackgroundAndBorderArraysSetTheirSettings(): void
@@ -367,6 +366,58 @@ class SettingsTest extends TestCase
         $this->assertTrue((new Settings(['description' => ['lineHeight' => 1.4, 'maxLines' => 3]]))->validate());
         $this->assertFalse((new Settings(['description' => ['lineHeight' => 0]]))->validate());
         $this->assertFalse((new Settings(['label' => ['maxLines' => 0]]))->validate());
+    }
+
+    public function testLayoutGroupsWrapSingleItems(): void
+    {
+        $this->assertSame(
+            [['logoLabel'], ['title'], ['description'], ['meta']],
+            (new Settings())->layoutGroups(),
+        );
+        $this->assertSame(
+            [['logoLabel'], ['title', 'description', 'meta']],
+            (new Settings(['layout' => [['logoLabel'], ['title', 'description', 'meta']]]))->layoutGroups(),
+        );
+        $this->assertSame(
+            [['logo'], ['title', 'label']],
+            (new Settings(['layout' => ['logo', ['title', 'label']]]))->layoutGroups(),
+        );
+    }
+
+    public function testLayoutGroupsDropUnknownAndRepeatedItems(): void
+    {
+        $settings = new Settings(['layout' => [['logoLabel', 'logo'], ['sideways', 'title'], ['label'], [], 'title']]);
+
+        $this->assertSame([['logoLabel'], ['title']], $settings->layoutGroups());
+    }
+
+    public function testLayoutIsOverridable(): void
+    {
+        $settings = new Settings([
+            'styles' => ['split' => ['position' => 'between', 'layout' => [['logoLabel'], ['title', 'description']]]],
+        ]);
+
+        $this->assertSame([['logoLabel'], ['title', 'description']], $settings->forTypes(null, null, 'split')->layoutGroups());
+        $this->assertCount(4, $settings->layoutGroups());
+    }
+
+    public function testValidatesLayout(): void
+    {
+        $this->assertTrue((new Settings(['layout' => [['logo', 'label'], ['title', 'meta']]]))->validate());
+        $this->assertTrue((new Settings(['layout' => ['title']]))->validate());
+        $this->assertFalse((new Settings(['layout' => ['title', 'subtitle']]))->validate());
+        $this->assertFalse((new Settings(['layout' => [[], 'title']]))->validate());
+        $this->assertFalse((new Settings(['layout' => ['title', 'title']]))->validate());
+        $this->assertFalse((new Settings(['layout' => ['logoLabel', 'label']]))->validate());
+        $this->assertFalse((new Settings(['layout' => [['logoLabel'], ['logo']]]))->validate());
+    }
+
+    public function testMetaHasItsOwnGap(): void
+    {
+        $settings = new Settings(['gap' => 20, 'meta' => ['gap' => 8]]);
+
+        $this->assertSame(8, $settings->gapAfter('meta'));
+        $this->assertSame(20, $settings->gapAfter('logo'));
     }
 
     public function testCanvasIsFixed(): void

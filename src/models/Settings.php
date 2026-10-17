@@ -89,8 +89,14 @@ class Settings extends Model
         'border' => 'width',
     ];
 
-    /** `between` pushes the first and last elements to the padding edges. */
+    /** `between` pushes the first and last groups to the padding edges. */
     public const POSITIONS = ['top', 'middle', 'bottom', 'between'];
+
+    /**
+     * What {@see $layout} can place: the text elements, the logo on its own row, and
+     * `logoLabel` for the logo beside the label.
+     */
+    public const LAYOUT_ITEMS = ['logoLabel', 'logo', 'label', 'title', 'description', 'meta'];
 
     public const ALIGNMENTS = ['left', 'center', 'right'];
 
@@ -128,6 +134,17 @@ class Settings extends Model
     ];
 
     public string $position = 'bottom';
+
+    /**
+     * What's drawn, in order, from the top. Each item is a group of one, or an array
+     * groups several. Items left out aren't drawn. Elements in a group keep their own
+     * gaps, and `between` shares the leftover space between groups, so
+     * `[['logoLabel'], ['title', 'description']]` puts the label at the top and the
+     * title and description together at the bottom.
+     *
+     * @var array<array-key, mixed>
+     */
+    public array $layout = ['logoLabel', 'title', 'description', 'meta'];
 
     public string $align = 'left';
 
@@ -184,15 +201,16 @@ class Settings extends Model
 
     /**
      * Space below each element in px, measured between line boxes, so the visible
-     * space also takes in line height and descenders. With `between` these are
-     * minimums, and the leftover space is shared equally between them.
+     * space also takes in line height and descenders. With `between`, gaps between
+     * groups are minimums, and the leftover space is shared equally between them.
      */
     public int $gap = 24;
 
-    /** The space below one element, over {@see $gap}. Null uses $gap. Meta is always last, so it has none. */
+    /** The space below one element, over {@see $gap}. Null uses $gap. */
     public ?int $labelGap = null;
     public ?int $titleGap = null;
     public ?int $descriptionGap = null;
+    public ?int $metaGap = null;
 
     /** Hiding the label keeps the logo, which has its own {@see $showLogo}. */
     public bool $showLabel = true;
@@ -482,11 +500,74 @@ class Settings extends Model
             'label' => $this->labelGap,
             'title' => $this->titleGap,
             'description' => $this->descriptionGap,
+            'meta' => $this->metaGap,
             default => null,
         };
 
         // Config values skip validation, so hold the floor here.
         return max(0, $own ?? $this->gap);
+    }
+
+    /**
+     * {@see $layout} as groups of items, in order. Config values skip validation, so
+     * unknown items are dropped, as are repeats of an element already placed
+     * (`logoLabel` places both the logo and the label).
+     *
+     * @return list<list<string>>
+     */
+    public function layoutGroups(): array
+    {
+        $placed = [];
+        $groups = [];
+        foreach ($this->layout as $group) {
+            $items = [];
+            foreach (is_array($group) ? $group : [$group] as $item) {
+                if (!is_string($item) || !in_array($item, self::LAYOUT_ITEMS, true)) {
+                    continue;
+                }
+
+                $parts = $item === 'logoLabel' ? ['logo', 'label'] : [$item];
+                if (array_intersect($parts, $placed) !== []) {
+                    continue;
+                }
+
+                $placed = [...$placed, ...$parts];
+                $items[] = $item;
+            }
+
+            if ($items !== []) {
+                $groups[] = $items;
+            }
+        }
+
+        return $groups;
+    }
+
+    public function validateLayout(string $attribute): void
+    {
+        $items = [];
+        foreach ($this->layout as $group) {
+            $group = is_array($group) ? $group : [$group];
+            if ($group === []) {
+                $this->addError($attribute, "Layout groups can't be empty.");
+
+                return;
+            }
+            $items = [...$items, ...$group];
+        }
+
+        foreach ($items as $item) {
+            if (!is_string($item) || !in_array($item, self::LAYOUT_ITEMS, true)) {
+                $this->addError($attribute, 'Layout items must be one of: ' . implode(', ', self::LAYOUT_ITEMS) . '.');
+
+                return;
+            }
+        }
+
+        $parts = array_merge(...array_map(fn(string $item): array => $item === 'logoLabel' ? ['logo', 'label'] : [$item], $items));
+        if (count($parts) !== count(array_unique($parts))) {
+            $this->addError($attribute, 'Layout can place each element once, and `logoLabel` places both the logo and the label.');
+        }
     }
 
     public function validateSides(string $attribute): void
@@ -518,10 +599,11 @@ class Settings extends Model
             ['position', 'in', 'range' => self::POSITIONS],
             ['align', 'in', 'range' => self::ALIGNMENTS],
             ['textEdges', 'in', 'range' => self::TEXT_EDGES],
+            ['layout', 'validateLayout'],
             [['titleMaxLines', 'labelMaxLines', 'descriptionMaxLines', 'metaMaxLines'], 'integer', 'min' => 1],
             [['titleLineHeight', 'labelLineHeight', 'descriptionLineHeight', 'metaLineHeight'], 'number', 'min' => 0.1],
             [['titleSize', 'labelSize', 'descriptionSize', 'metaSize', 'logoHeight'], 'integer', 'min' => 1],
-            [['backgroundPadding', 'backgroundRadius', 'backgroundBlur', 'gap', 'labelGap', 'titleGap', 'descriptionGap'], 'integer', 'min' => 0],
+            [['backgroundPadding', 'backgroundRadius', 'backgroundBlur', 'gap', 'labelGap', 'titleGap', 'descriptionGap', 'metaGap'], 'integer', 'min' => 0],
             ['backgroundFit', 'in', 'range' => self::BACKGROUND_FITS],
             ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
             [['padding', 'border'], 'validateSides', 'skipOnEmpty' => false],

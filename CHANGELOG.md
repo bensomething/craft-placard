@@ -1,5 +1,11 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Added
+- `layout` setting, for the order elements are drawn in and how they're grouped. `between` spaces groups apart and keeps each together, so `[['logoLabel'], ['title', 'description']]` puts the logo and label at the top and the title and description at the bottom. `logo` draws the logo on a row of its own, and `logoLabel` beside the label, as before. Unset, cards draw as they did.
+- `meta.gap`, now that meta can be moved from last position.
+
 ## 1.0.0-beta.7 - 2026-10-16
 
 ### Added
