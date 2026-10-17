@@ -2,7 +2,7 @@
 
 Generates social (OG) cards with Imagick for Craft entries. Cards are rendered on demand and cached under `storage/runtime/og-images`.
 
-A card is a stack of four text elements (label, title, description and meta) over a solid colour, with an optional logo beside the label and an optional background image.
+A card is a combination of four text elements (label, title, description and meta) over a solid colour, with an optional logo and background image.
 
 ## Requirements
 
@@ -190,7 +190,7 @@ Element, logo, background and border settings are each an array under their name
 
 Items in a group keep their own gaps. With `between`, the first group sits at the top, the last at the bottom, and any between are spaced evenly, so this puts the logo and label at the top and the rest together at the bottom. Other positions stack the groups as one. Each item can appear once, and `logoLabel` counts as both the logo and the label.
 
-Leave `layout` unset and cards stack as before, with each element its own group. Like any setting, `sections`, `entryTypes` and `styles` can override it.
+Leave `layout` unset and cards stack as before, with each element its own group and in the order of: `logoLabel`, `title`, `description`, and `meta`. Like any setting, `sections`, `entryTypes` and `styles` can override it.
 
 ### Elements
 
