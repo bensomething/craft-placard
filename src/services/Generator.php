@@ -211,6 +211,7 @@ class Generator extends Component
 
         $backgroundBlob = $background;
         $focalPoint = null;
+        $opacity = $s->backgroundOpacity;
         if ($background instanceof Asset) {
             try {
                 $backgroundBlob = $background->getContents();
@@ -223,10 +224,11 @@ class Generator extends Component
         if ($backgroundBlob === null || $backgroundBlob === '') {
             $backgroundBlob = $this->fileContents($s->backgroundImagePath);
             $focalPoint = null;
+            $opacity = $s->backgroundImagePathOpacity ?? $opacity;
         }
 
         if ($backgroundBlob !== null && $backgroundBlob !== '') {
-            $this->compositeBackground($img, $backgroundBlob, $backgroundColor, is_array($focalPoint) ? $focalPoint : null);
+            $this->compositeBackground($img, $backgroundBlob, $backgroundColor, $opacity, is_array($focalPoint) ? $focalPoint : null);
         }
 
         $this->drawBorder($img);
@@ -692,7 +694,7 @@ class Generator extends Component
      *
      * @param array{x: float, y: float}|null $focalPoint Fractions of the image, null for the middle.
      */
-    private function compositeBackground(Imagick $img, string $blob, string $backgroundColor, ?array $focalPoint = null): void
+    private function compositeBackground(Imagick $img, string $blob, string $backgroundColor, float $opacity, ?array $focalPoint = null): void
     {
         $w = $this->settings->width;
         $h = $this->settings->height;
@@ -730,7 +732,7 @@ class Generator extends Component
                 $this->roundCorners($bg, $this->settings->backgroundRadius);
             }
 
-            $bg->evaluateImage(Imagick::EVALUATE_MULTIPLY, $this->settings->backgroundOpacity, Imagick::CHANNEL_ALPHA);
+            $bg->evaluateImage(Imagick::EVALUATE_MULTIPLY, $opacity, Imagick::CHANNEL_ALPHA);
 
             $img->compositeImage(
                 $bg,

@@ -7,6 +7,7 @@ use bensomething\placard\Plugin;
 use Craft;
 use craft\base\ElementInterface;
 use craft\base\Field;
+use craft\base\FieldInterface;
 use craft\elements\Asset;
 use craft\elements\Entry;
 use craft\fields\Assets;
@@ -202,7 +203,7 @@ class SocialImage extends Field
         // Every path a default could name, as the entry's own fields aren't known here.
         $defaultFields = array_map(fn(Assets $field) => [
             'value' => SocialImageValue::FIELD_PREFIX . $field->handle,
-            'label' => Craft::t('site', $field->name),
+            'label' => $this->fieldName($field),
         ], $assetFields);
         foreach ($nested as $option) {
             $defaultFields[] = ['value' => SocialImageValue::FIELD_PREFIX . $option['path'], 'label' => $option['label']];
@@ -323,7 +324,7 @@ class SocialImage extends Field
                 $fields[] = [
                     'path' => $field->handle,
                     'uid' => (string)$field->uid,
-                    'label' => Craft::t('site', $field->name),
+                    'label' => $this->fieldName($field),
                 ];
             } else {
                 array_push($nested, ...$this->nestedAssetFields($field));
@@ -353,13 +354,27 @@ class SocialImage extends Field
                     $options[$path] = [
                         'path' => $path,
                         'uid' => (string)$inner->uid,
-                        'label' => Craft::t('site', $field->name) . ' → ' . Craft::t('site', $inner->name),
+                        'label' => $this->fieldName($field) . ' → ' . $this->fieldName($inner),
                     ];
                 }
             }
         }
 
         return array_values($options);
+    }
+
+    /**
+     * A layout's copy of a field takes its label as its name, and a hidden label is
+     * `__blank__`, so that falls back to the field's own name.
+     */
+    private function fieldName(FieldInterface $field): string
+    {
+        $name = $field->name;
+        if ($name === '__blank__' && $field->id) {
+            $name = Craft::$app->getFields()->getFieldById($field->id)->name ?? $field->handle;
+        }
+
+        return Craft::t('site', $name);
     }
 
     /** A misconfigured section counts as yes, so the field isn't lost. */

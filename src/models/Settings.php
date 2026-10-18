@@ -69,6 +69,7 @@ class Settings extends Model
             'imageField' => 'backgroundImageField',
             'useShareImage' => 'useImageAsBackground',
             'imagePath' => 'backgroundImagePath',
+            'imagePathOpacity' => 'backgroundImagePathOpacity',
             'fit' => 'backgroundFit',
             'padding' => 'backgroundPadding',
             'radius' => 'backgroundRadius',
@@ -311,6 +312,9 @@ class Settings extends Model
     public int $backgroundBlur = 0;
 
     public float $backgroundOpacity = 0.25;
+
+    /** For {@see $backgroundImagePath} only. Null uses {@see $backgroundOpacity}. */
+    public ?float $backgroundImagePathOpacity = null;
 
     /** How the background image blends with the canvas colour. */
     public string $backgroundBlendMode = 'normal';
@@ -652,7 +656,7 @@ class Settings extends Model
             ['jpegQuality', 'integer', 'min' => 1, 'max' => 100],
             ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
             [['padding', 'border'], 'validateSides', 'skipOnEmpty' => false],
-            [['backgroundOpacity'], 'number', 'min' => 0, 'max' => 1],
+            [['backgroundOpacity', 'backgroundImagePathOpacity'], 'number', 'min' => 0, 'max' => 1],
             [['backgroundColor', 'labelColor', 'titleColor', 'descriptionColor', 'metaColor', 'borderColor'], 'string'],
         ];
     }

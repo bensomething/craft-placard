@@ -89,6 +89,24 @@ SEOmatic's image source settings only list Assets fields, so they can't read the
 
 This overrides the section's SEOmatic settings. SEOmatic doesn't transform an image given as a URL, and cards are already 1200×630. Use the `summary_large_image` Twitter card so they show at full size.
 
+### With SEOmate
+
+SEOmate's field profiles only read Assets fields, so they can't read the Social Image field. Pass the URL with the `seomate` variable instead, set in your layout before the `seomateMeta` hook:
+
+```twig
+{% set ogImage = craft.placard.shareImageUrl(entry ?? null) %}
+{% if ogImage %}
+    {% set seomate = {
+        config: { imageTransformMap: {} },
+        meta: { image: ogImage },
+    } %}
+{% endif %}
+```
+
+SEOmate fills `og:image` and `twitter:image` from `image`. Emptying `imageTransformMap` is needed: SEOmate transforms images as assets, and given a URL it drops the tag. Placard's images are already 1200×630. If a template already sets `seomate`, merge these keys into it rather than replacing it.
+
+Set `imageFieldHandles` to the image fields in your SEOmate profile, so entries without a Social Image field share the same image as before. Placard reads paths like `seo.seoImage`, but not SEOmate's `field.type:subField` form.
+
 ## Social Image field
 
 Lets editors choose what each entry shares (the generated card, a custom image, or one of the entry's image fields) with a preview that updates as they edit. Its settings choose which sources are offered, which image fields are listed and the default. Asset fields inside the entry's Matrix and Content Block fields are listed too, as *SEO → SEO Image*. A layout can only hold one, and entries without URLs show a note instead.
@@ -262,6 +280,7 @@ A string sets just the colour. The image is the `imageField`'s, then the share i
 | `padding`, `radius` | `0` | Inset and corner radius in px |
 | `grayscale` | `false` | Set the image in grayscale |
 | `opacity` | `0.25` | Strength of the image. A transparent PNG keeps its transparency, scaled by this |
+| `imagePathOpacity` | none | `opacity` for the `imagePath` image only, so a section can show its photos stronger than the pattern it falls back to |
 | `blur` | `0` | Blur strength in px, roughly as CSS `blur()` |
 | `blendMode` | `normal` | How the image blends with the colour: `multiply`, `screen`, `overlay`, `darken`, `lighten`, `color-dodge`, `color-burn`, `hard-light`, `soft-light`, `difference` or `exclusion`, as in CSS |
 

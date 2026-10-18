@@ -1,5 +1,13 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Added
+- `imagePathOpacity` background setting, for the `imagePath` image's opacity. Without it, a section's `opacity` for its image field also applied to the fallback image on entries with no image.
+
+### Fixed
+- The Social Image field listed fields with a hidden label in the entry's layout as *__blank__*, such as *__blank__ → Photo*. They now show the field's name.
+
 ## 1.0.0-beta.10 - 2026-10-18
 
 ### Added

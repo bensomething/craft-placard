@@ -4,17 +4,26 @@ namespace bensomething\placard\tests\Unit;
 
 use bensomething\placard\fields\SocialImage;
 use bensomething\placard\models\SocialImageValue;
+use Craft;
 use craft\base\ElementInterface;
+use craft\console\Application;
 use craft\elements\Entry;
 use craft\fields\Assets;
 use craft\fields\Matrix;
 use craft\fields\PlainText;
+use craft\i18n\I18N;
 use craft\models\EntryType;
 use craft\models\FieldLayout;
+use craft\services\Fields;
 use PHPUnit\Framework\TestCase;
 
 class SocialImageTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        Craft::$app = null;
+    }
+
     public function testNormalizesJsonArraysAndEmptyValues(): void
     {
         $field = new SocialImage(['defaultSource' => SocialImageValue::CUSTOM]);
@@ -173,6 +182,24 @@ class SocialImageTest extends TestCase
         ));
     }
 
+    public function testHiddenLabelFallsBackToFieldNameThenHandle(): void
+    {
+        $global = $this->assetField('hero', 'Hero Image');
+        $fields = $this->createStub(Fields::class);
+        $fields->method('getFieldById')->willReturnMap([[1, $global], [2, null]]);
+        $this->stubApp($fields);
+
+        $hero = $this->assetField('hero', '__blank__');
+        $hero->id = 1;
+        $gone = $this->assetField('gone', '__blank__');
+        $gone->id = 2;
+
+        $options = (new SocialImage())->options($this->entryWithFields([$hero, $gone]));
+
+        $this->assertSame('Hero Image', $options[3]['label']);
+        $this->assertSame('gone', $options[4]['label']);
+    }
+
     public function testIsSingleInstance(): void
     {
         $this->assertFalse(SocialImage::isMultiInstance());
@@ -217,6 +244,18 @@ class SocialImageTest extends TestCase
         $layout->method('getCustomFields')->willReturn($fields);
 
         return $layout;
+    }
+
+    /** An app with just the fields service, and translations passed through as-is. */
+    private function stubApp(Fields $fields): void
+    {
+        $i18n = $this->createStub(I18N::class);
+        $i18n->method('translate')->willReturnArgument(1);
+
+        $app = $this->createStub(Application::class);
+        $app->method('getFields')->willReturn($fields);
+        $app->method('getI18n')->willReturn($i18n);
+        Craft::$app = $app;
     }
 
     private function assetField(string $handle, ?string $name = null): Assets

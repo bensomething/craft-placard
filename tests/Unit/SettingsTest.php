@@ -120,6 +120,7 @@ class SettingsTest extends TestCase
         $this->assertTrue((new Settings())->validate());
         $this->assertFalse((new Settings(['position' => 'sideways']))->validate());
         $this->assertFalse((new Settings(['backgroundOpacity' => 2]))->validate());
+        $this->assertFalse((new Settings(['backgroundImagePathOpacity' => -0.5]))->validate());
         $this->assertTrue((new Settings(['backgroundBlendMode' => 'multiply']))->validate());
         $this->assertFalse((new Settings(['backgroundBlendMode' => 'hue']))->validate());
         $this->assertFalse((new Settings(['backgroundBlur' => -1]))->validate());
@@ -284,6 +285,7 @@ class SettingsTest extends TestCase
                 'grayscale' => true,
                 'blur' => 4,
                 'opacity' => 0.5,
+                'imagePathOpacity' => 0.1,
                 'blendMode' => 'multiply',
             ],
             'border' => ['width' => [8, 0, 0, 0], 'color' => '#f5b400', 'colorField' => 'accent'],
@@ -302,6 +304,7 @@ class SettingsTest extends TestCase
         $this->assertTrue($settings->backgroundGrayscale);
         $this->assertSame(4, $settings->backgroundBlur);
         $this->assertSame(0.5, $settings->backgroundOpacity);
+        $this->assertSame(0.1, $settings->backgroundImagePathOpacity);
         $this->assertSame('multiply', $settings->backgroundBlendMode);
         $this->assertSame([8, 0, 0, 0], $settings->border);
         $this->assertSame('#f5b400', $settings->borderColor);
