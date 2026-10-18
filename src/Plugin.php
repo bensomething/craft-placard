@@ -10,12 +10,14 @@ use Craft;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
 use craft\events\DefineRulesEvent;
+use craft\events\RegisterCacheOptionsEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\helpers\Html;
 use craft\helpers\UrlHelper;
 use craft\models\FieldLayout;
 use craft\services\Fields;
+use craft\utilities\ClearCaches;
 use craft\web\Controller;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
@@ -39,7 +41,8 @@ class Plugin extends BasePlugin
             'generator' => Generator::class,
         ]);
 
-        // The .png suffix keeps the URL recognisable as an image to crawlers.
+        // The .png suffix keeps the URL recognisable as an image to crawlers. Photo
+        // cards are JPEG under it, which crawlers read from the Content-Type.
         Event::on(
             UrlManager::class,
             UrlManager::EVENT_REGISTER_SITE_URL_RULES,
@@ -63,6 +66,18 @@ class Plugin extends BasePlugin
             Fields::EVENT_REGISTER_FIELD_TYPES,
             static function(RegisterComponentTypesEvent $event): void {
                 $event->types[] = SocialImage::class;
+            }
+        );
+
+        Event::on(
+            ClearCaches::class,
+            ClearCaches::EVENT_REGISTER_CACHE_OPTIONS,
+            function(RegisterCacheOptionsEvent $event): void {
+                $event->options[] = [
+                    'key' => 'placard-cards',
+                    'label' => Craft::t('placard', 'Placard social cards'),
+                    'action' => $this->getGenerator()->cachePath(),
+                ];
             }
         );
 

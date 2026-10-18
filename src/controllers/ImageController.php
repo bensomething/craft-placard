@@ -159,12 +159,22 @@ class ImageController extends Controller
         $design = md5(serialize($card->settings->getAttributes()));
         $hash = substr(md5("$card->title|$card->label|$card->description|$card->meta|$card->backgroundColor|$token|$bgKey|$design"), 0, 10);
 
-        $dir = Craft::$app->getPath()->getRuntimePath() . '/og-images';
+        // Config values skip validation, so anything unknown is `auto`.
+        $format = in_array($card->settings->format, ['png', 'jpeg'], true)
+            ? $card->settings->format
+            : ($background ? 'jpeg' : 'png');
+        $dir = $generator->cachePath();
         FileHelper::createDirectory($dir);
-        $file = "$dir/og-$entry->id-$hash.png";
+        // Per site as well as entry, since an entry's card differs between sites and
+        // the prune below would otherwise delete one site's card for another's.
+        $prefix = "og-$entry->id-$entry->siteId-";
+        $file = $dir . '/' . $prefix . $hash . ($format === 'jpeg' ? '.jpg' : '.png');
 
-        if (!is_file($file)) {
-            file_put_contents($file, $generator->generate(
+        // Read straight into memory, so a prune by another request can't remove the file mid-read.
+        $content = is_file($file) ? @file_get_contents($file) : false;
+
+        if ($content === false) {
+            $content = $generator->generate(
                 $card->title,
                 $card->label,
                 $background,
@@ -172,14 +182,28 @@ class ImageController extends Controller
                 $card->description,
                 $card->backgroundColor,
                 $card->settings,
-            ));
+                $format,
+            );
+
+            // Written aside and renamed in, so a concurrent request never serves a partial file.
+            $tmp = $file . '.' . uniqid('', true) . '.tmp';
+            if (file_put_contents($tmp, $content) !== false && rename($tmp, $file)) {
+                // The entry's older versions are never requested again, as card URLs change with them.
+                foreach (glob($dir . '/' . $prefix . '*') ?: [] as $old) {
+                    if ($old !== $file && !str_ends_with($old, '.tmp')) {
+                        @unlink($old);
+                    }
+                }
+            } else {
+                @unlink($tmp);
+            }
         }
 
         $response = Craft::$app->getResponse();
         $response->format = Response::FORMAT_RAW;
-        $response->headers->set('Content-Type', 'image/png');
+        $response->headers->set('Content-Type', $format === 'jpeg' ? 'image/jpeg' : 'image/png');
         $response->headers->set('Cache-Control', $cacheControl);
-        $response->content = file_get_contents($file);
+        $response->content = $content;
 
         return $response;
     }

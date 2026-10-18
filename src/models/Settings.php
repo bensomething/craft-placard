@@ -110,6 +110,9 @@ class Settings extends Model
 
     public const BACKGROUND_FITS = ['cover', 'contain'];
 
+    /** `auto` is JPEG for cards with a background image and PNG otherwise. */
+    public const FORMATS = ['auto', 'png', 'jpeg'];
+
     /**
      * Named as in CSS `mix-blend-mode`. Hue, saturation, color and luminosity are
      * left out because Imagick ignores the image's opacity for them.
@@ -323,6 +326,17 @@ class Settings extends Model
 
     /** Returned by `craft.placard.default()` for pages with no entry. */
     public string $defaultImagePath = 'img/og-default.png';
+
+    // -- Output ---------------------------------------------------------------
+
+    /**
+     * File format of served cards. Photos are several times smaller as JPEG, and flat
+     * cards keep crisper text as PNG.
+     */
+    public string $format = 'auto';
+
+    /** 1 to 100. Higher is sharper and larger. */
+    public int $jpegQuality = 85;
 
     // -- Per-type overrides ---------------------------------------------------
 
@@ -634,6 +648,8 @@ class Settings extends Model
             [['titleSize', 'labelSize', 'descriptionSize', 'metaSize', 'logoHeight'], 'integer', 'min' => 1],
             [['backgroundPadding', 'backgroundRadius', 'backgroundBlur', 'gap', 'labelGap', 'titleGap', 'descriptionGap', 'metaGap'], 'integer', 'min' => 0],
             ['backgroundFit', 'in', 'range' => self::BACKGROUND_FITS],
+            ['format', 'in', 'range' => self::FORMATS],
+            ['jpegQuality', 'integer', 'min' => 1, 'max' => 100],
             ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
             [['padding', 'border'], 'validateSides', 'skipOnEmpty' => false],
             [['backgroundOpacity'], 'number', 'min' => 0, 'max' => 1],

@@ -107,6 +107,10 @@ return [
     // craft.placard.default()
     'defaultImagePath' => 'img/og-default.png',
 
+    // 'png', 'jpeg', or 'auto' for JPEG with a background image and PNG otherwise.
+    'format' => 'auto',
+    'jpegQuality' => 85,
+
     // Overrides by handle. Entry types win over sections.
     'sections' => [
         // 'artists' => [

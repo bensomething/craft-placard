@@ -1,6 +1,6 @@
 # Placard
 
-Generates social (OG) cards with Imagick for Craft entries. Cards are rendered on demand and cached under `storage/runtime/og-images`.
+Generates social (OG) cards with Imagick for Craft entries. Cards are rendered on demand and cached under `storage/runtime/og-images`, which keeps only each entry's latest card and can be emptied from Utilities → Caches.
 
 A card is a combination of four text elements (label, title, description and meta) over a solid colour, with an optional logo and background image.
 
@@ -169,6 +169,8 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `fontPath` | Inter | Font for every element, unless it sets its own. Unset, each element uses the bundled Inter in its own weight (Bold title, Medium label, Regular description and meta) |
 | `imageFieldHandles` | `['seoImage', 'hero', 'featuredImage']` | Share image fields for entries without a Social Image field |
 | `defaultImagePath` | `img/og-default.png` | Returned by `default()` |
+| `format` | `auto` | `png`, `jpeg`, or `auto` for JPEG when the card has a background image and PNG otherwise. Photos are several times smaller as JPEG, and flat cards keep crisper text as PNG |
+| `jpegQuality` | `85` | 1 to 100, for cards saved as JPEG |
 | `sections`, `entryTypes` | `[]` | Overrides by handle |
 | `styles` | `[]` | Named overrides editors choose per entry, see *Styles* |
 | `label`, `title`, `description`, `meta` | | Each element's settings, see *Elements* |

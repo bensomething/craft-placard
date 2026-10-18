@@ -143,6 +143,12 @@ class Generator extends Component
         return $asset->getUrl(['width' => Settings::WIDTH, 'height' => Settings::HEIGHT, 'mode' => 'crop']) ?: null;
     }
 
+    /** Where served cards are cached. Safe to empty, as cards re-render on request. */
+    public function cachePath(): string
+    {
+        return Craft::$app->getPath()->getRuntimePath() . '/og-images';
+    }
+
     /** Most recently updated entry of a section and/or entry type, for the settings preview. */
     public function sampleEntry(?string $sectionHandle, ?string $typeHandle): ?Entry
     {
@@ -171,9 +177,11 @@ class Generator extends Component
     }
 
     /**
-     * Renders the card as PNG binary, with an entry's settings from defineCard() or
-     * the base ones. `$background` is an asset (cropped around its focal point) or
-     * raw image contents.
+     * Renders the card as PNG binary, or JPEG with `$format` 'jpeg', with an entry's
+     * settings from defineCard() or the base ones. `$background` is an asset (cropped
+     * around its focal point) or raw image contents.
+     *
+     * @param 'png'|'jpeg' $format
      */
     public function generate(
         string $title,
@@ -183,9 +191,10 @@ class Generator extends Component
         ?string $description = null,
         ?string $backgroundColor = null,
         ?Settings $settings = null,
+        string $format = 'png',
     ): string {
         if ($settings !== null && $settings !== $this->settings) {
-            return $this->withSettings($settings)->generate($title, $label, $background, $meta, $description, $backgroundColor);
+            return $this->withSettings($settings)->generate($title, $label, $background, $meta, $description, $backgroundColor, null, $format);
         }
 
         $s = $this->settings;
@@ -390,6 +399,16 @@ class Generator extends Component
         }
 
         $logo?->destroy();
+
+        if ($format === 'jpeg') {
+            // JPEG has no alpha, so a translucent background colour goes over white.
+            $img->setImageBackgroundColor(new ImagickPixel('white'));
+            $img->setImageAlphaChannel(Imagick::ALPHACHANNEL_REMOVE);
+            $img->setImageFormat('jpeg');
+            // Config values skip validation.
+            $img->setImageCompressionQuality(min(100, max(1, $this->settings->jpegQuality)));
+            $img->stripImage();
+        }
 
         $out = $img->getImageBlob();
         $img->destroy();

@@ -1,5 +1,15 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Added
+- `format` setting, for the file format of served cards. The default, `auto`, saves cards with a background image as JPEG, several times smaller than PNG for photos, and others as PNG. `jpegQuality` sets their quality, 85 by default.
+- Placard's cached cards can be cleared from Utilities → Caches.
+
+### Changed
+- When an entry's card re-renders, its older cached versions are deleted, so `storage/runtime/og-images` no longer keeps a copy for every change to the entry or the config. Cards cached before this update stay until the cache is cleared.
+- Cached cards are kept per site, so a multi-site entry's cards don't overwrite each other.
+
 ## 1.0.0-beta.9 - 2026-10-18
 
 ### Changed
