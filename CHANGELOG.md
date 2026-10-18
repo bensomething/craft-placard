@@ -1,6 +1,6 @@
 # Release Notes for Placard
 
-## Unreleased
+## 1.0.0-beta.10 - 2026-10-18
 
 ### Added
 - `format` setting, for the file format of served cards. The default, `auto`, saves cards with a background image as JPEG, several times smaller than PNG for photos, and others as PNG. `jpegQuality` sets their quality, 85 by default.
