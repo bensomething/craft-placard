@@ -420,6 +420,31 @@ class SettingsTest extends TestCase
         $this->assertSame(20, $settings->gapAfter('logo'));
     }
 
+    public function testElementsAndLogoAlignOverTheCard(): void
+    {
+        $settings = new Settings([
+            'align' => 'center',
+            'meta' => ['align' => 'right'],
+            'logo' => ['align' => 'left'],
+            'styles' => ['flipped' => ['title' => ['align' => 'right']]],
+        ]);
+
+        $this->assertSame('right', $settings->alignFor('meta'));
+        $this->assertSame('left', $settings->alignFor('logo'));
+        $this->assertSame('center', $settings->alignFor('title'));
+        $this->assertSame('right', $settings->forTypes(null, null, 'flipped')->alignFor('title'));
+        $this->assertSame('right', $settings->forTypes(null, null, 'flipped')->alignFor('meta'));
+    }
+
+    public function testUnknownElementAlignFallsBack(): void
+    {
+        $settings = new Settings(['align' => 'right', 'title' => ['align' => 'sideways']]);
+
+        $this->assertSame('right', $settings->alignFor('title'));
+        $this->assertFalse($settings->validate());
+        $this->assertTrue((new Settings(['label' => ['align' => 'center']]))->validate());
+    }
+
     public function testCanvasIsFixed(): void
     {
         $settings = new Settings();

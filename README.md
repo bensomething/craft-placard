@@ -219,6 +219,7 @@ Leave `layout` unset and cards stack as before, with each element its own group 
 | `colorField` | none | A Color field (or hex text field) to take the colour from, falling back to `color` |
 | `fontPath` | none | The element's font, over `fontPath` |
 | `gap` | none | Space below the element, over `gap` |
+| `align` | none | `left`, `center` or `right`, over `align`. The label's also aligns a logo beside it |
 
 ### Logo
 
@@ -230,9 +231,10 @@ A string sets just the path, and `false` hides the logo.
 
 | Key | Default | Notes |
 |---|---|---|
-| `path` | none | PNG or SVG drawn beside the label |
+| `path` | none | PNG or SVG drawn beside the label, or on its own row (see *Layout*) |
 | `height` | `48` | Height in px. Its width follows its proportions |
 | `show` | `true` | Turn the logo off |
+| `align` | none | `left`, `center` or `right` on its own row, over `align`. Beside the label, it follows the label's |
 
 ### Background
 

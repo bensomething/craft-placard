@@ -282,6 +282,7 @@ class Generator extends Component
                     'inkTop' => 0.0,
                     'inkBottom' => 0.0,
                     'gap' => (float)$s->gapAfter($item === 'logo' ? 'logo' : $element),
+                    'align' => $s->alignFor($item === 'logo' ? 'logo' : $element),
                     'group' => $group,
                 ];
                 $blocks[] = $block;
@@ -345,6 +346,7 @@ class Generator extends Component
                 'inkTop' => $inkTop,
                 'inkBottom' => $inkBottom,
                 'gap' => (float)$s->gapAfter($element),
+                'align' => $s->alignFor($element),
                 'group' => $group,
             ];
         }
@@ -945,7 +947,7 @@ class Generator extends Component
      * Draws a block at a top edge. A logo and its text are aligned as one row, with
      * the text inset to make room.
      *
-     * @param array{font:string, lines:string[], style:array, size:float, lineHeight:float, baseline:float, height:float, logo:?Imagick, logoTop:float} $block
+     * @param array{font:string, lines:string[], style:array, size:float, lineHeight:float, baseline:float, height:float, logo:?Imagick, logoTop:float, align:string} $block
      */
     private function drawBlock(Imagick $img, array $block, float $top): void
     {
@@ -969,7 +971,7 @@ class Generator extends Component
         $centre = $pad['left'] + ($w - $pad['left'] - $pad['right'] + $logoWidth + $gap) / 2;
 
         // [text anchor x, text alignment, logo x]
-        [$x, $align, $logoX] = match ($this->settings->align) {
+        [$x, $align, $logoX] = match ($block['align']) {
             'center' => [
                 $centre,
                 Imagick::ALIGN_CENTER,

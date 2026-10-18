@@ -52,6 +52,7 @@ class Settings extends Model
         'colorField' => '{e}ColorField',
         'fontPath' => '{e}FontPath',
         'gap' => '{e}Gap',
+        'align' => '{e}Align',
     ];
 
     /** Keys of the other config arrays and the settings they set. */
@@ -60,6 +61,7 @@ class Settings extends Model
             'path' => 'logoPath',
             'height' => 'logoHeight',
             'show' => 'showLogo',
+            'align' => 'logoAlign',
         ],
         'background' => [
             'color' => 'backgroundColor',
@@ -211,6 +213,16 @@ class Settings extends Model
     public ?int $titleGap = null;
     public ?int $descriptionGap = null;
     public ?int $metaGap = null;
+
+    /**
+     * An element's own alignment, over {@see $align}. Null uses $align. The label's
+     * also aligns a logo beside it, and the logo's applies when it has a row of its own.
+     */
+    public ?string $labelAlign = null;
+    public ?string $titleAlign = null;
+    public ?string $descriptionAlign = null;
+    public ?string $metaAlign = null;
+    public ?string $logoAlign = null;
 
     /** Hiding the label keeps the logo, which has its own {@see $showLogo}. */
     public bool $showLabel = true;
@@ -494,6 +506,22 @@ class Settings extends Model
     }
 
     /** The space below an element. */
+    /** An element's alignment, or the logo's. */
+    public function alignFor(string $element): string
+    {
+        $own = match ($element) {
+            'label' => $this->labelAlign,
+            'title' => $this->titleAlign,
+            'description' => $this->descriptionAlign,
+            'meta' => $this->metaAlign,
+            'logo' => $this->logoAlign,
+            default => null,
+        };
+
+        // Config values skip validation, so anything unknown falls back.
+        return in_array($own, self::ALIGNMENTS, true) ? $own : $this->align;
+    }
+
     public function gapAfter(string $element): int
     {
         $own = match ($element) {
@@ -600,6 +628,7 @@ class Settings extends Model
             ['align', 'in', 'range' => self::ALIGNMENTS],
             ['textEdges', 'in', 'range' => self::TEXT_EDGES],
             ['layout', 'validateLayout'],
+            [['labelAlign', 'titleAlign', 'descriptionAlign', 'metaAlign', 'logoAlign'], 'in', 'range' => self::ALIGNMENTS],
             [['titleMaxLines', 'labelMaxLines', 'descriptionMaxLines', 'metaMaxLines'], 'integer', 'min' => 1],
             [['titleLineHeight', 'labelLineHeight', 'descriptionLineHeight', 'metaLineHeight'], 'number', 'min' => 0.1],
             [['titleSize', 'labelSize', 'descriptionSize', 'metaSize', 'logoHeight'], 'integer', 'min' => 1],

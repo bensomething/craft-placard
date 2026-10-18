@@ -24,7 +24,7 @@ return [
     // e.g. '{summary ?: seoDescription}'. A string sets just the text, false hides it.
     // Sizes are px on the 1200×630 card. lineHeight is a multiple of the size.
     // colorField takes the colour from a field on the entry, falling back to color.
-    // fontPath overrides the fontPath below. gap overrides gap.
+    // fontPath overrides the fontPath below. gap and align override gap and align.
     'label' => [
         'text' => '{type.name}',
         'show' => true,
@@ -36,6 +36,7 @@ return [
         'colorField' => '',
         'fontPath' => '',
         'gap' => null,
+        'align' => null,
     ],
     'title' => [
         'text' => '{title}',
@@ -65,12 +66,14 @@ return [
     // Checked in order for the share image of entries with no Social Image field.
     'imageFieldHandles' => ['seoImage', 'hero', 'featuredImage'],
 
-    // Drawn beside the label. Its width follows its proportions. A string sets just
-    // the path, false hides it.
+    // Drawn beside the label, or on its own row with 'logo' in layout. Its width follows
+    // its proportions. align applies on its own row; beside the label, it follows the
+    // label's. A string sets just the path, false hides it.
     'logo' => [
         'path' => '@webroot/img/logo.png',
         'height' => 48,
         'show' => true,
+        'align' => null,
     ],
 
     // colorField takes the colour from a field on the entry, falling back to color.
