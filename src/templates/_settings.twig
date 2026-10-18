@@ -178,9 +178,10 @@
                 entrySelect.appendChild(option);
             });
 
-            if (entries.length) {
+            // A single entry is already the one previewed, so there's nothing to pick.
+            if (entries.length > 1) {
                 entrySelect.parentNode.classList.remove('hidden');
-            } else {
+            } else if (!entries.length) {
                 caption.textContent = Craft.t('placard', 'No entries yet, so this is placeholder text');
                 caption.classList.remove('hidden');
             }
