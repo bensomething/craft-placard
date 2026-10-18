@@ -259,7 +259,7 @@ A string sets just the colour. The image is the `imageField`'s, then the share i
 | `fit` | `cover` | `cover` (cropped around the focal point) or `contain` |
 | `padding`, `radius` | `0` | Inset and corner radius in px |
 | `grayscale` | `false` | Set the image in grayscale |
-| `opacity` | `0.25` | Strength of the image |
+| `opacity` | `0.25` | Strength of the image. A transparent PNG keeps its transparency, scaled by this |
 | `blur` | `0` | Blur strength in px, roughly as CSS `blur()` |
 | `blendMode` | `normal` | How the image blends with the colour: `multiply`, `screen`, `overlay`, `darken`, `lighten`, `color-dodge`, `color-burn`, `hard-light`, `soft-light`, `difference` or `exclusion`, as in CSS |
 

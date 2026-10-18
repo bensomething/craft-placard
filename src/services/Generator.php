@@ -701,7 +701,10 @@ class Generator extends Component
             if ($this->settings->backgroundGrayscale || $this->settings->backgroundGreyscale) {
                 $bg->modulateImage(100, 0, 100);
             }
-            $bg->setImageAlphaChannel(Imagick::ALPHACHANNEL_OPAQUE);
+            // SET keeps the image's own transparency, so a transparent PNG works as a
+            // pattern. It still adds an opaque alpha to images without one, as the
+            // opacity multiply does nothing to a missing channel.
+            $bg->setImageAlphaChannel(Imagick::ALPHACHANNEL_SET);
 
             // Before the opacity drop, so both act on the same alpha.
             if ($this->settings->backgroundRadius > 0) {

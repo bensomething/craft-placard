@@ -1,5 +1,10 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Changed
+- Background images keep their own transparency, and `opacity` scales it, so a transparent PNG works as a pattern over the colour. Opaque images, such as photos, render as before.
+
 ## 1.0.0-beta.8 - 2026-10-18
 
 ### Added
