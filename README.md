@@ -18,7 +18,11 @@ composer require bensomething/craft-placard:^1.0.0-beta
 
 The `-beta` in the constraint is what lets Composer install it under a project's default `stable` minimum stability.
 
-Or install from the control panel: **Settings → Plugins**.
+Or install from the control panel: **Settings → Plugins**, or from the terminal:
+
+```bash
+php craft plugin/install placard
+```
 
 ## Configure
 
