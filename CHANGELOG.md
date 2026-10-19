@@ -5,6 +5,12 @@
 ### Added
 - Card previews show a spinner while the image loads, on the same grey as the empty Custom Image placeholder, so a card that's still rendering no longer looks like a blank card.
 
+### Changed
+- Requests for a card that isn't cached yet render it once. Others arriving meanwhile, like the burst of crawlers a newly shared entry draws, wait for that render instead of each running their own.
+
+### Security
+- Card URLs only serve entries with a URL of their own. Nested entries and entries in sections without URLs now 404, as their content may not be shown publicly, and stepping through entry IDs could make the server render a card for every entry.
+
 ## 1.0.0-beta.13 - 2026-10-19
 
 ### Added

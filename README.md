@@ -79,7 +79,7 @@ Card text templates reach nested fields themselves: `'{seo.one().seoTitle ?? tit
 | `shareImageUrl(entry)` | The image the entry shares (its Social Image field's choice, else the first image in `imageFieldHandles`, else the card). Anything that isn't an entry gets `default()` |
 | `previewImageUrl(entry)` | As `shareImageUrl()`, but the card also renders drafts for logged-in users. For the CP, like a field layout's Template element (`craft.placard.previewImageUrl(element)`), not front-end templates |
 | `entryHasImage(entry)` | Whether that's one of the entry's own images |
-| `url(entry)` | The card's URL. Only live entries are served, so drafts can't be read from it |
+| `url(entry)` | The card's URL. Only live entries with a URL are served, so drafts and entries without a page (nested entries, sections without URLs) can't be read from it |
 | `default()` | `defaultImagePath`, for pages with no entry, or null when it isn't set |
 
 ### With SEOmatic or SEOmate

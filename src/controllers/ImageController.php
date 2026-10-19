@@ -2,6 +2,7 @@
 
 namespace bensomething\placard\controllers;
 
+use bensomething\placard\events\DefineCardEvent;
 use bensomething\placard\Plugin;
 use Craft;
 use craft\elements\Asset;
@@ -16,14 +17,17 @@ class ImageController extends Controller
     protected array|bool|int $allowAnonymous = ['generate'];
 
     /**
-     * Public, so live entries only. Drafts and disabled entries 404 so unpublished
-     * content can't be read off the URL. The CP uses {@see actionPreview()}.
+     * Public, so live entries with a URL only. Drafts and disabled entries 404 so
+     * unpublished content can't be read off the URL, and so do entries without a page
+     * (nested entries, URL-less sections), as their content may not be shown anywhere
+     * and anyone could step through IDs to render them all. The CP uses
+     * {@see actionPreview()}.
      */
     public function actionGenerate(int $entryId): Response
     {
         $entry = Entry::find()->id($entryId)->one();
 
-        if (!$entry) {
+        if (!$entry || $entry->getUrl() === null) {
             throw new NotFoundHttpException('Entry not found.');
         }
 
@@ -152,46 +156,36 @@ class ImageController extends Controller
         $generator = Plugin::getInstance()->getGenerator();
         $card = $generator->defineCard($entry);
 
-        $background = $card->background;
-        $hash = $generator->cardHash($card);
-
         // Config values skip validation, so anything unknown is `auto`.
         $format = in_array($card->settings->format, ['png', 'jpeg'], true)
             ? $card->settings->format
-            : ($background ? 'jpeg' : 'png');
+            : ($card->background ? 'jpeg' : 'png');
         $dir = $generator->cachePath();
         FileHelper::createDirectory($dir);
         // Per site as well as entry, since an entry's card differs between sites and
         // the prune below would otherwise delete one site's card for another's.
         $prefix = "og-$entry->id-$entry->siteId-";
-        $file = $dir . '/' . $prefix . $hash . ($format === 'jpeg' ? '.jpg' : '.png');
+        $file = $dir . '/' . $prefix . $generator->cardHash($card) . ($format === 'jpeg' ? '.jpg' : '.png');
 
         // Read straight into memory, so a prune by another request can't remove the file mid-read.
         $content = is_file($file) ? @file_get_contents($file) : false;
 
         if ($content === false) {
-            $content = $generator->generate(
-                $card->title,
-                $card->label,
-                $background,
-                $card->meta,
-                $card->description,
-                $card->backgroundColor,
-                $card->settings,
-                $format,
-            );
+            // A newly shared entry draws a burst of crawlers, so one request renders while
+            // the rest wait for its file. Past the timeout, render anyway rather than fail.
+            $mutex = Craft::$app->getMutex();
+            $lock = 'placard-card:' . basename($file);
+            $locked = $mutex->acquire($lock, 15);
 
-            // Written aside and renamed in, so a concurrent request never serves a partial file.
-            $tmp = $file . '.' . uniqid('', true) . '.tmp';
-            if (file_put_contents($tmp, $content) !== false && rename($tmp, $file)) {
-                // The entry's older versions are never requested again, as card URLs change with them.
-                foreach (glob($dir . '/' . $prefix . '*') ?: [] as $old) {
-                    if ($old !== $file && !str_ends_with($old, '.tmp')) {
-                        @unlink($old);
-                    }
+            try {
+                $content = is_file($file) ? @file_get_contents($file) : false;
+                if ($content === false) {
+                    $content = $this->renderToCache($card, $format, $file, $dir . '/' . $prefix);
                 }
-            } else {
-                @unlink($tmp);
+            } finally {
+                if ($locked) {
+                    $mutex->release($lock);
+                }
             }
         }
 
@@ -202,5 +196,35 @@ class ImageController extends Controller
         $response->content = $content;
 
         return $response;
+    }
+
+    /** Renders the card into `$file`, then removes the entry's older cards (those starting `$prefixPath`). */
+    private function renderToCache(DefineCardEvent $card, string $format, string $file, string $prefixPath): string
+    {
+        $content = Plugin::getInstance()->getGenerator()->generate(
+            $card->title,
+            $card->label,
+            $card->background,
+            $card->meta,
+            $card->description,
+            $card->backgroundColor,
+            $card->settings,
+            $format,
+        );
+
+        // Written aside and renamed in, so a concurrent request never serves a partial file.
+        $tmp = $file . '.' . uniqid('', true) . '.tmp';
+        if (file_put_contents($tmp, $content) !== false && rename($tmp, $file)) {
+            // The entry's older versions are never requested again, as card URLs change with them.
+            foreach (glob($prefixPath . '*') ?: [] as $old) {
+                if ($old !== $file && !str_ends_with($old, '.tmp')) {
+                    @unlink($old);
+                }
+            }
+        } else {
+            @unlink($tmp);
+        }
+
+        return $content;
     }
 }
