@@ -1,5 +1,10 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Added
+- Card previews show a spinner while the image loads, on the same grey as the empty Custom Image placeholder, so a card that's still rendering no longer looks like a blank card.
+
 ## 1.0.0-beta.13 - 2026-10-19
 
 ### Added

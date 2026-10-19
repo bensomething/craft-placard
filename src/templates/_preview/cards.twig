@@ -1,6 +1,7 @@
 {#
     Share preview: the card at its real aspect ratio, not a per-platform mock-up, as every
-    platform crops differently. `is-showing-safe` on `.placard-sp` overlays the safe area.
+    platform crops differently. `is-showing-safe` on `.placard-sp` overlays the safe area, and
+    `is-loading` covers the card with a spinner until the image arrives.
 
     Params:
       imageUrl     Image to frame. Defaults to the entry's share image.
@@ -17,11 +18,13 @@
     {# Sits under the image to avoid a grey flash while loading. Config may omit the #. #}
     {% set cardBg = placard ? '#' ~ placard.settings.backgroundColor|trim('#') : '#000000' %}
 
-    <div class="placard-sp" style="--placard-w: {{ cardWidth }}; --placard-h: {{ cardHeight }}; --placard-bg: {{ cardBg }}; --placard-max-w: {{ (maxWidth ?? 480) is same as(false) ? 'none' : (maxWidth ?? 480) ~ 'px' }}">
+    <div class="placard-sp is-loading" style="--placard-w: {{ cardWidth }}; --placard-h: {{ cardHeight }}; --placard-bg: {{ cardBg }}; --placard-max-w: {{ (maxWidth ?? 480) is same as(false) ? 'none' : (maxWidth ?? 480) ~ 'px' }}">
         {# `data-url` tracks the image on screen (the settings page swaps it) for the lightbox. #}
         <div class="placard-sp__frame button-fade">
             <div class="placard-sp__img" data-url="{{ imageUrl }}" style="background-image:url('{{ imageUrl }}')"></div>
             <div class="placard-sp__safe" aria-hidden="true"></div>
+            {# Before the placeholder, so an empty Custom Image covers it. #}
+            <div class="placard-sp__loading"><div class="spinner big" role="status" aria-label="{{ 'Loading'|t('app') }}"></div></div>
             {% if placeholder ?? false %}
                 <div class="placard-sp__placeholder">{{ placeholder|raw }}</div>
             {% endif %}
@@ -59,11 +62,23 @@
         }
         .placard-sp.is-showing-safe .placard-sp__safe { opacity: 1; }
 
-        .placard-sp__placeholder {
+        .placard-sp__placeholder,
+        .placard-sp__loading {
             position: absolute; inset: 0;
             display: none; align-items: center; justify-content: center;
             background: var(--gray-100, #e4e9f0); color: var(--gray-400, #7b8793);
         }
+        /* Fades in after a beat, so a cached card doesn't flash it, and out at once. */
+        .placard-sp__loading {
+            display: flex;
+            opacity: 0; visibility: hidden;
+            transition: opacity .15s, visibility 0s .15s;
+        }
+        .placard-sp.is-loading .placard-sp__loading {
+            opacity: 1; visibility: visible;
+            transition: opacity .15s .15s, visibility 0s .15s;
+        }
+        .placard-sp__loading .spinner { display: inline-flex; margin: 0; }
         .placard-sp__placeholder .cp-icon { width: 48px; height: 48px; }
         .placard-sp__placeholder svg { width: 100%; height: 100%; fill: currentColor; }
         .placard-sp.is-empty .placard-sp__placeholder { display: flex; }
@@ -96,6 +111,15 @@
             var style = getComputedStyle(root);
             var cardWidth = parseFloat(style.getPropertyValue('--placard-w'));
             var cardHeight = parseFloat(style.getPropertyValue('--placard-h'));
+
+            // A background image fires no load event, so a copy reports when it's ready.
+            // `data-loading` names the image awaited, so a later swap's spinner outlasts this one.
+            var first = root.dataset.loading = img.dataset.url;
+            var loader = new Image();
+            loader.onload = loader.onerror = function () {
+                if (root.dataset.loading === first) root.classList.remove('is-loading');
+            };
+            loader.src = first;
 
             // Plain Garnish.Modal, as Craft.PreviewFileModal needs an asset id. The image sizes
             // itself in CSS, since Garnish clamps width and height separately and would squash it.

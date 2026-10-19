@@ -99,10 +99,14 @@
     function show(url) {
         var loader = new Image();
         var request = ++pending;
+        // Cards render on request, so the first view of one can take a while.
+        preview.dataset.loading = url;
+        preview.classList.add('is-loading');
         loader.onload = loader.onerror = function () {
             if (request !== pending) return;
             img.style.backgroundImage = "url('" + url + "')";
             img.dataset.url = url;
+            preview.classList.remove('is-loading');
         };
         loader.src = url;
     }
