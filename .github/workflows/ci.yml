@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A branch only needs its latest push checked.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: ${{ matrix.script }} (PHP ${{ matrix.php }}, ${{ matrix.dependencies }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.4']
+        script: [check-cs, phpstan, test]
+        dependencies: [highest, lowest]
+        exclude:
+          # Code style is ours alone. The Craft version can't affect it.
+          - script: check-cs
+            dependencies: lowest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # composer.json requires ext-imagick, so the install fails without it.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: imagick
+          coverage: none
+
+      - uses: ramsey/composer-install@v3
+        with:
+          dependency-versions: ${{ matrix.dependencies }}
+
+      - run: composer ${{ matrix.script }}
+
+  package:
+    name: package
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      # No `composer install` above: validation reads the manifest, not the tree.
+      # `--no-plugins` keeps `craftcms/plugin-installer` out of it, which errors on a
+      # relative vendor path when it does get loaded.
+      - run: composer validate --strict --no-plugins
+
+      # This prints what an install would receive.
+      - name: List what ships in the dist archive
+        run: git archive --format=tar HEAD | tar --list | sort

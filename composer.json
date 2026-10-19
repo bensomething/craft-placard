@@ -1,17 +1,20 @@
 {
     "name": "bensomething/craft-placard",
-    "description": "Configurable social images for entries.",
+    "description": "Open Graph images for every entry, made on your own server. No Chrome, no external service.",
     "type": "craft-plugin",
     "license": "MIT",
     "keywords": [
         "craft",
         "cms",
         "craftcms",
-        "plugin",
-        "og",
-        "opengraph",
-        "social",
-        "image",
+        "craft-plugin",
+        "open graph",
+        "og image",
+        "social image",
+        "share image",
+        "social card",
+        "twitter card",
+        "seo",
         "imagick"
     ],
     "support": {

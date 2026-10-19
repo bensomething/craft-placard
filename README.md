@@ -1,3 +1,5 @@
+<img src="src/icon.svg" width="96" alt="Placard">
+
 # Placard
 
 Generates social (OG) cards with Imagick for Craft entries. Cards are rendered on demand and cached under `storage/runtime/og-images`, which keeps only each entry's latest card and can be emptied from Utilities → Caches.
