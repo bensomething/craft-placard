@@ -1,5 +1,13 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Security
+- Background images from asset fields are only read if they're JPEG, PNG, GIF, WebP or AVIF. Others, including SVG, TIFF and BMP, are skipped with a logged warning and the card falls back to `imagePath`. ImageMagick picks a reader from a file's contents, so an editor's upload could reach readers like SVG's.
+
+### Changed
+- The README recommends a PNG logo.
+
 ## 1.0.0-beta.11 - 2026-10-19
 
 ### Added

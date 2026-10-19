@@ -8,7 +8,7 @@ A card is a combination of four text elements (label, title, description and met
 
 - Craft CMS 5.10 or later
 - PHP 8.2 or later
-- The `imagick` PHP extension
+- The `imagick` PHP extension. SVG logos also need ImageMagick's SVG support (see *Logo*)
 
 ## Install
 
@@ -244,7 +244,7 @@ Leave `layout` unset and cards stack as before, with each element its own group 
 ### Logo
 
 ```php
-'logo' => ['path' => '@webroot/img/logo.svg', 'height' => 40],
+'logo' => ['path' => '@webroot/img/logo.png', 'height' => 40],
 ```
 
 A string sets just the path, and `false` hides the logo.
@@ -255,6 +255,8 @@ A string sets just the path, and `false` hides the logo.
 | `height` | `48` | Height in px. Its width follows its proportions |
 | `show` | `true` | Turn the logo off |
 | `align` | none | `left`, `center` or `right` on its own row, over `align`. Beside the label, it follows the label's |
+
+A PNG works on every server. Export it at about four times `height` so it stays sharp. SVG logos need ImageMagick with SVG support, which many servers don't have; without it the card is drawn with no logo and a warning is logged. Where it is available, ImageMagick's built-in SVG renderer can't draw masks, gradients or filters, so an SVG using them may come out wrong.
 
 ### Background
 
@@ -268,6 +270,8 @@ A string sets just the path, and `false` hides the logo.
 ```
 
 A string sets just the colour. The image is the `imageField`'s, then the share image (with `useShareImage`), then `imagePath`. With a Social Image field, the share image is the custom image or image field the editor picked. With the card picked, or no field, it's the first image in `imageFieldHandles`.
+
+Images from asset fields must be JPEG, PNG, GIF, WebP or AVIF. Anything else, such as an SVG, is skipped with a warning in the log, as ImageMagick chooses how to read a file from its contents rather than its extension. `imagePath` is set in config, so it isn't checked.
 
 | Key | Default | Notes |
 |---|---|---|

@@ -218,6 +218,12 @@ class Generator extends Component
             } catch (\Throwable) {
                 $backgroundBlob = null;
             }
+            // Editors choose these, and ImageMagick picks a reader from the contents
+            // whatever the extension, so only photo formats get as far as it.
+            if ($backgroundBlob !== null && $backgroundBlob !== '' && !$this->isRasterImage($backgroundBlob)) {
+                Craft::warning("Placard skipped the background image $background->filename (asset $background->id), as it isn't a JPEG, PNG, GIF, WebP or AVIF", __METHOD__);
+                $backgroundBlob = null;
+            }
             $focalPoint = $background->getFocalPoint();
         }
 
@@ -1125,6 +1131,30 @@ class Generator extends Component
         }
 
         return $blob;
+    }
+
+    /** Whether the contents start like a JPEG, PNG, GIF, WebP or AVIF. */
+    private function isRasterImage(string $blob): bool
+    {
+        if (
+            str_starts_with($blob, "\xFF\xD8\xFF") ||
+            str_starts_with($blob, "\x89PNG\r\n\x1A\n") ||
+            str_starts_with($blob, 'GIF87a') ||
+            str_starts_with($blob, 'GIF89a') ||
+            (str_starts_with($blob, 'RIFF') && substr($blob, 8, 4) === 'WEBP')
+        ) {
+            return true;
+        }
+
+        // AVIF: an ISO BMFF `ftyp` box naming avif or avis as its major brand or a
+        // compatible one (those follow a 4-byte minor version).
+        if (strlen($blob) < 12 || substr($blob, 4, 4) !== 'ftyp') {
+            return false;
+        }
+        $size = min(unpack('N', $blob)[1], 64, strlen($blob));
+        $brands = [substr($blob, 8, 4), ...str_split(substr($blob, 16, max(0, $size - 16)), 4)];
+
+        return array_intersect($brands, ['avif', 'avis']) !== [];
     }
 
     /** Parses env vars and aliases in a configured path. Null when empty. */
