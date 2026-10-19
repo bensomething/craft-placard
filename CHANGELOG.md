@@ -1,6 +1,6 @@
 # Release Notes for Placard
 
-## Unreleased
+## 1.0.0-beta.13 - 2026-10-19
 
 ### Added
 - SEOmatic and SEOmate get each entry's share image (the Social Image field's choice, or the card) with nothing added to templates. SEOmatic gets it as the entry's SEO, Open Graph and X image. SEOmate gets it as `image`, `og:image` and `twitter:image`, unless a template sets `seomate.meta.image` itself. `seoPlugins` turns this off.
