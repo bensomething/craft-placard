@@ -1,6 +1,6 @@
 # Release Notes for Placard
 
-## Unreleased
+## 1.0.0-beta.15 - 2026-10-19
 
 ### Added
 - `googleFont` setting, and a `googleFont` key for each element, to use a Google Fonts family, as `Fraunces` or `Fraunces:700`. Each family and weight is downloaded once into `storage/runtime/placard/fonts/`. Without a weight, each element takes Inter's: Bold title, Medium label, Regular description and meta.
