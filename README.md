@@ -4,6 +4,9 @@ Generates social (OG) cards with Imagick for Craft entries. Cards are rendered o
 
 A card is a combination of four text elements (label, title, description and meta) over a solid colour, with an optional logo and background image.
 
+> [!NOTE]
+> Placard is in beta. It's ready to try, but its config settings, Twig API and Social Image field may still change before 1.0.0. Please [report anything you hit](https://github.com/bensomething/craft-placard/issues).
+
 ## Requirements
 
 - Craft CMS 5.10 or later
