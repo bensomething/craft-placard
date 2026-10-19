@@ -9,6 +9,9 @@
 - With SEOmatic, the image replaces the one its section settings choose, as the README's snippet did. Templates using the snippet keep working, and it can be removed.
 - Both plugins cache each page's tags. After updating, clear SEOmatic's or SEOmate's caches (Utilities → Caches) for pages to show the new image before their entries are next saved.
 
+### Fixed
+- A card's URL now changes whenever the card does. Replacing a background image's file, moving its focal point, or a `DefineCard` handler or related entry changing the text changed the card but not its URL, so a CDN or crawler that had cached the URL kept the old card.
+
 ## 1.0.0-beta.12 - 2026-10-19
 
 ### Security

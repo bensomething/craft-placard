@@ -153,11 +153,7 @@ class ImageController extends Controller
         $card = $generator->defineCard($entry);
 
         $background = $card->background;
-        $token = $entry->dateUpdated?->getTimestamp() ?? 0;
-        $bgKey = $background ? $background->id . ':' . ($background->dateModified?->getTimestamp() ?? 0) : '';
-        // Hash the settings too, so brand changes bust the cache as well as content changes.
-        $design = md5(serialize($card->settings->getAttributes()));
-        $hash = substr(md5("$card->title|$card->label|$card->description|$card->meta|$card->backgroundColor|$token|$bgKey|$design"), 0, 10);
+        $hash = $generator->cardHash($card);
 
         // Config values skip validation, so anything unknown is `auto`.
         $format = in_array($card->settings->format, ['png', 'jpeg'], true)

@@ -77,7 +77,7 @@ class Generator extends Component
 
     /**
      * Absolute URL to an entry's card. Cards are served immutable, so `v` changes
-     * with the entry and its settings.
+     * whenever the card does (see cardHash()).
      */
     public function cardUrl(Entry $entry): string
     {
@@ -97,11 +97,28 @@ class Generator extends Component
         ]);
     }
 
+    /**
+     * A fingerprint of everything a card is drawn from. It names the cached file and
+     * versions the card's URL, so a URL can't outlive the card it was made for. The
+     * background's dates catch a replaced file (dateModified) and a moved focal point
+     * (dateUpdated), neither of which touches the entry.
+     */
+    public function cardHash(DefineCardEvent $card): string
+    {
+        $background = $card->background;
+        $bgKey = $background
+            ? $background->id . ':' . ($background->dateModified?->getTimestamp() ?? 0) . ':' . ($background->dateUpdated?->getTimestamp() ?? 0)
+            : '';
+        $token = $card->entry->dateUpdated?->getTimestamp() ?? 0;
+        // The settings too, so brand changes bust the cache as well as content changes.
+        $design = md5(serialize($card->settings->getAttributes()));
+
+        return substr(md5("$card->title|$card->label|$card->description|$card->meta|$card->backgroundColor|$token|$bgKey|$design"), 0, 10);
+    }
+
     private function cardToken(Entry $entry): string
     {
-        $settings = $this->settings->forEntry($entry);
-
-        return substr(md5(($entry->dateUpdated?->getTimestamp() ?? 0) . serialize($settings->getAttributes())), 0, 10);
+        return $this->cardHash($this->defineCard($entry));
     }
 
     /**
