@@ -82,40 +82,18 @@ Card text templates reach nested fields themselves: `'{seo.one().seoTitle ?? tit
 | `url(entry)` | The card's URL. Only live entries are served, so drafts can't be read from it |
 | `default()` | `defaultImagePath`, for pages with no entry, or null when it isn't set |
 
-### With SEOmatic
+### With SEOmatic or SEOmate
 
-SEOmatic's image source settings only list Assets fields, so they can't read the Social Image field. Pass the URL to SEOmatic from your layout instead:
+With SEOmatic or SEOmate installed, Placard gives it each entry's share image. There's nothing to add to your templates: their `og:image` and `twitter:image` tags show the Social Image field's choice, or the card.
 
-```twig
-{% set ogImage = craft.placard.shareImageUrl(entry ?? null) %}
-{% if ogImage %}
-    {% do seomatic.meta.setAttributes({
-        seoImage: ogImage,
-        ogImage: ogImage,
-        twitterImage: ogImage,
-    }) %}
-{% endif %}
-```
+- **SEOmatic** gets it as the entry's SEO, Open Graph and X image, replacing the images its section settings choose. Pages that aren't entries keep SEOmatic's own.
+- **SEOmate** gets it as `image`, `og:image` and `twitter:image`, as though your layout had set them in the `seomate` variable. A template that sets `seomate.meta.image` itself keeps its own. Pages that aren't entries keep SEOmate's own.
 
-This overrides the section's SEOmatic settings. SEOmatic doesn't transform an image given as a URL, and cards are already 1200×630. Use the `summary_large_image` Twitter card so they show at full size.
+Cards are already 1200×630, so neither plugin resizes them. With SEOmatic, use the `summary_large_image` X card so they show at full size.
 
-### With SEOmate
+Set `imageFieldHandles` to the image fields your SEO plugin used, so entries without a Social Image field share the same image as before. Placard reads paths like `seo.seoImage`, but not SEOmate's `field.type:subField` form.
 
-SEOmate's field profiles only read Assets fields, so they can't read the Social Image field. Pass the URL with the `seomate` variable instead, set in your layout before the `seomateMeta` hook:
-
-```twig
-{% set ogImage = craft.placard.shareImageUrl(entry ?? null) %}
-{% if ogImage %}
-    {% set seomate = {
-        config: { imageTransformMap: {} },
-        meta: { image: ogImage },
-    } %}
-{% endif %}
-```
-
-SEOmate fills `og:image` and `twitter:image` from `image`. Emptying `imageTransformMap` is needed: SEOmate transforms images as assets, and given a URL it drops the tag. Placard's images are already 1200×630. If a template already sets `seomate`, merge these keys into it rather than replacing it.
-
-Set `imageFieldHandles` to the image fields in your SEOmate profile, so entries without a Social Image field share the same image as before. Placard reads paths like `seo.seoImage`, but not SEOmate's `field.type:subField` form.
+To pass the image yourself instead, set `'seoPlugins' => false`, then use `craft.placard.shareImageUrl()` wherever you like.
 
 ## Social Image field
 
@@ -199,6 +177,7 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `defaultImagePath` | `img/og-default.png` | Returned by `default()` |
 | `format` | `auto` | `png`, `jpeg`, or `auto` for JPEG when the card has a background image and PNG otherwise. Photos are several times smaller as JPEG, and flat cards keep crisper text as PNG |
 | `jpegQuality` | `85` | 1 to 100, for cards saved as JPEG |
+| `seoPlugins` | `true` | Give SEOmatic and SEOmate each entry's share image, see *With SEOmatic or SEOmate* |
 | `sections`, `entryTypes` | `[]` | Overrides by handle |
 | `styles` | `[]` | Named overrides editors choose per entry, see *Styles* |
 | `label`, `title`, `description`, `meta` | | Each element's settings, see *Elements* |

@@ -3,6 +3,8 @@
 namespace bensomething\placard;
 
 use bensomething\placard\fields\SocialImage;
+use bensomething\placard\integrations\Seomate;
+use bensomething\placard\integrations\Seomatic;
 use bensomething\placard\models\Settings;
 use bensomething\placard\services\Generator;
 use bensomething\placard\web\twig\PlacardVariable;
@@ -40,6 +42,12 @@ class Plugin extends BasePlugin
         $this->setComponents([
             'generator' => Generator::class,
         ]);
+
+        // Here rather than in onInit(), so the SEOmate hook registers before SEOmate's own.
+        if ($this->getSettings()->seoPlugins) {
+            Seomatic::register();
+            Seomate::register();
+        }
 
         // The .png suffix keeps the URL recognisable as an image to crawlers. Photo
         // cards are JPEG under it, which crawlers read from the Content-Type.

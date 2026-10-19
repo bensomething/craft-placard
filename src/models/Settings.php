@@ -342,6 +342,12 @@ class Settings extends Model
     /** 1 to 100. Higher is sharper and larger. */
     public int $jpegQuality = 85;
 
+    /**
+     * Gives SEOmatic and SEOmate each entry's share image, replacing the image their
+     * own settings choose. Off for templates that pass the image themselves.
+     */
+    public bool $seoPlugins = true;
+
     // -- Per-type overrides ---------------------------------------------------
 
     /**
@@ -365,8 +371,11 @@ class Settings extends Model
      */
     public array $styles = [];
 
-    /** The fallback image is for pages with no entry, so it can't vary by type. */
-    public const NOT_OVERRIDABLE = ['sections', 'entryTypes', 'styles', 'defaultImagePath'];
+    /**
+     * The fallback image is for pages with no entry, so it can't vary by type. SEO
+     * plugins are hooked into once, at startup.
+     */
+    public const NOT_OVERRIDABLE = ['sections', 'entryTypes', 'styles', 'defaultImagePath', 'seoPlugins'];
 
     public function __construct($config = [])
     {
@@ -654,6 +663,7 @@ class Settings extends Model
             ['backgroundFit', 'in', 'range' => self::BACKGROUND_FITS],
             ['format', 'in', 'range' => self::FORMATS],
             ['jpegQuality', 'integer', 'min' => 1, 'max' => 100],
+            ['seoPlugins', 'boolean'],
             ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
             [['padding', 'border'], 'validateSides', 'skipOnEmpty' => false],
             [['backgroundOpacity', 'backgroundImagePathOpacity'], 'number', 'min' => 0, 'max' => 1],

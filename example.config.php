@@ -111,6 +111,9 @@ return [
     'format' => 'auto',
     'jpegQuality' => 85,
 
+    // Gives SEOmatic and SEOmate each entry's share image. false to pass it yourself.
+    'seoPlugins' => true,
+
     // Overrides by handle. Entry types win over sections.
     'sections' => [
         // 'artists' => [
