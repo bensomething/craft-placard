@@ -10,14 +10,15 @@ A card is a combination of four text elements (label, title, description and met
 - PHP 8.2 or later
 - The `imagick` PHP extension. SVG logos also need ImageMagick's SVG support (see *Logo*)
 
-## Install
-
-Placard is available from Packagist while it's being tested:
+## Installation
 
 ```bash
-composer require bensomething/craft-placard:^1.0@beta
-php craft plugin/install placard
+composer require bensomething/craft-placard:^1.0.0-beta
 ```
+
+The `-beta` in the constraint is what lets Composer install it under a project's default `stable` minimum stability.
+
+Or install from the control panel: **Settings → Plugins**.
 
 ## Configure
 
