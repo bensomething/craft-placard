@@ -1,6 +1,6 @@
 # Release Notes for Placard
 
-## Unreleased
+## 1.0.0-beta.11 - 2026-10-19
 
 ### Added
 - `imagePathOpacity` background setting, for the `imagePath` image's opacity. Without it, a section's `opacity` for its image field also applied to the fallback image on entries with no image.
