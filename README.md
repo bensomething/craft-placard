@@ -52,7 +52,23 @@ return [
 
 Paths accept aliases (`@root`, `@webroot`) and env vars. The canvas is fixed at 1200×630, the size every platform recommends.
 
-No commercial font is bundled. Inter (SIL OFL) is the default. Set `fontPath` to use your own font throughout, and an element's own `fontPath` (see *Elements*) to give it a different font.
+### Fonts
+
+No commercial font is bundled. Inter (SIL OFL) is the default, in a weight per element: Bold title, Medium label, Regular description and meta.
+
+Set `fontPath` to use your own font file throughout, or `googleFont` to use a [Google Fonts](https://fonts.google.com) family. An element's own `fontPath` or `googleFont` (see *Elements*) gives it a different font. The element's own font wins over the global one, and at each level a path wins over a Google font.
+
+```php
+'googleFont' => 'Fraunces',
+'title' => ['googleFont' => 'Playfair Display:900'],
+'meta' => ['fontPath' => '@root/src/fonts/MyMono.woff2'],
+```
+
+**Font files.** TTF, OTF, WOFF and WOFF2 all work. WOFF2 needs ImageMagick's FreeType built with Brotli, as current Debian and Ubuntu packages are. A file is one weight, so `fontPath` uses the same weight everywhere: give the title its own `fontPath` for a bolder one. A variable font draws in its default instance only.
+
+**Google Fonts.** Give a family as it's named on Google Fonts, optionally with a weight: `Fraunces` or `Fraunces:700`. Without a weight, each element takes Inter's (700 title, 500 label, 400 description and meta), or 400 when the family doesn't have that weight. Variable families come as a static font at the weight you ask for. Each family and weight is downloaded once, from the server rather than visitors' browsers, into `storage/runtime/placard/fonts/`. Clear it with Utilities → Caches → Placard Google Fonts to pick up an updated family. A few families with axes besides weight, like Roboto Flex, aren't offered as one file: download those and use `fontPath`.
+
+A font that can't be drawn (a missing or unreadable file, or a Google family that doesn't exist) falls back to Inter, and the reason goes to Craft's log. If Google can't be reached, the card is drawn in Inter but not cached, so it's drawn again with the font once the download works.
 
 ### Nested fields
 
@@ -172,7 +188,8 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `textEdges` | `caps` | Place by cap height to baseline (`caps`) or by the letters' ink (`ink`) |
 | `padding` | `80` | Inset for the text in px, as CSS shorthand: one value, `[vertical, horizontal]`, `[top, horizontal, bottom]` or `[top, right, bottom, left]`. Text wraps at the width between the sides, and `center` centres within them |
 | `gap` | `24` | Space below each element in px, between line boxes, so the visible space also takes in line height and descenders. With `between`, gaps between groups are minimums. Elements can set their own |
-| `fontPath` | Inter | Font for every element, unless it sets its own. Unset, each element uses the bundled Inter in its own weight (Bold title, Medium label, Regular description and meta) |
+| `fontPath` | Inter | Font file for every element, unless it sets its own, see *Fonts*. Unset, each element uses the bundled Inter in its own weight (Bold title, Medium label, Regular description and meta) |
+| `googleFont` | none | Google Fonts family for every element, as `Fraunces` or `Fraunces:700`, see *Fonts*. `fontPath` wins over it |
 | `imageFieldHandles` | `['seoImage', 'hero', 'featuredImage']` | Share image fields for entries without a Social Image field |
 | `defaultImagePath` | `img/og-default.png` | Returned by `default()` |
 | `format` | `auto` | `png`, `jpeg`, or `auto` for JPEG when the card has a background image and PNG otherwise. Photos are several times smaller as JPEG, and flat cards keep crisper text as PNG |
@@ -226,7 +243,8 @@ Leave `layout` unset and cards stack as before, with each element its own group 
 | `uppercase` | `false`, `true`, `false`, `false` | Set the text in capitals |
 | `color` | `#a3a3a3`, `#ffffff`, `#a3a3a3`, `#a3a3a3` | Text colour |
 | `colorField` | none | A Color field (or hex text field) to take the colour from, falling back to `color` |
-| `fontPath` | none | The element's font, over `fontPath` |
+| `fontPath` | none | The element's font file, over `fontPath` and `googleFont` |
+| `googleFont` | none | The element's Google font, over `fontPath` and `googleFont`. The element's own `fontPath` wins over it |
 | `gap` | none | Space below the element, over `gap` |
 | `align` | none | `left`, `center` or `right`, over `align`. The label's also aligns a logo beside it |
 

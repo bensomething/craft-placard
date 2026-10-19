@@ -136,21 +136,68 @@ class SettingsTest extends TestCase
             'titleFontPath' => '@root/Title.otf',
         ]);
 
-        $this->assertSame('@root/Title.otf', $settings->fontPathFor('title'));
-        $this->assertSame('@root/Base.otf', $settings->fontPathFor('label'));
-        $this->assertSame('@root/Base.otf', $settings->fontPathFor('description'));
-        $this->assertSame('@root/Base.otf', $settings->fontPathFor('meta'));
-        $this->assertSame('', (new Settings())->fontPathFor('title'));
+        $this->assertSame(['path' => '@root/Title.otf'], $settings->fontFor('title'));
+        $this->assertSame(['path' => '@root/Base.otf'], $settings->fontFor('label'));
+        $this->assertSame(['path' => '@root/Base.otf'], $settings->fontFor('description'));
+        $this->assertSame(['path' => '@root/Base.otf'], $settings->fontFor('meta'));
+        $this->assertNull((new Settings())->fontFor('title'));
     }
 
     public function testDisplayFontPathStillSetsTheTitle(): void
     {
         $settings = new Settings(['fontPath' => '@root/Base.otf', 'displayFontPath' => '@root/Display.otf']);
 
-        $this->assertSame('@root/Display.otf', $settings->fontPathFor('title'));
+        $this->assertSame(['path' => '@root/Display.otf'], $settings->fontFor('title'));
 
         $settings->titleFontPath = '@root/Title.otf';
-        $this->assertSame('@root/Title.otf', $settings->fontPathFor('title'));
+        $this->assertSame(['path' => '@root/Title.otf'], $settings->fontFor('title'));
+    }
+
+    public function testAnElementsOwnFontWinsOverTheGlobalOne(): void
+    {
+        $settings = new Settings([
+            'fontPath' => '@root/Base.otf',
+            'titleGoogleFont' => 'Fraunces:700',
+        ]);
+
+        $this->assertSame(['google' => 'Fraunces:700'], $settings->fontFor('title'));
+        $this->assertSame(['path' => '@root/Base.otf'], $settings->fontFor('label'));
+    }
+
+    public function testAFontPathWinsOverAGoogleFontAtTheSameLevel(): void
+    {
+        $settings = new Settings([
+            'googleFont' => 'Fraunces',
+            'fontPath' => '@root/Base.otf',
+            'metaGoogleFont' => 'Inter:500',
+            'metaFontPath' => '@root/Meta.otf',
+        ]);
+
+        $this->assertSame(['path' => '@root/Base.otf'], $settings->fontFor('title'));
+        $this->assertSame(['path' => '@root/Meta.otf'], $settings->fontFor('meta'));
+    }
+
+    public function testGoogleFontSetsEveryElementUnlessOverridden(): void
+    {
+        $settings = new Settings(['googleFont' => 'Fraunces', 'labelGoogleFont' => 'Inter:600']);
+
+        $this->assertSame(['google' => 'Fraunces'], $settings->fontFor('title'));
+        $this->assertSame(['google' => 'Inter:600'], $settings->fontFor('label'));
+    }
+
+    public function testElementArraysSetTheirGoogleFont(): void
+    {
+        $settings = new Settings(['title' => ['googleFont' => 'Fraunces:900']]);
+
+        $this->assertSame('Fraunces:900', $settings->titleGoogleFont);
+    }
+
+    public function testGoogleFontsAreValidated(): void
+    {
+        $this->assertTrue((new Settings(['googleFont' => 'Playfair Display:700']))->validate());
+        $this->assertTrue((new Settings(['titleGoogleFont' => 'Fraunces']))->validate());
+        $this->assertFalse((new Settings(['googleFont' => 'Fraunces:bold']))->validate());
+        $this->assertFalse((new Settings(['metaGoogleFont' => 'Fraunces&display=swap']))->validate());
     }
 
     public function testGapAfterFallsBackToGap(): void

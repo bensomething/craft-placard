@@ -3,6 +3,7 @@
 namespace bensomething\placard\models;
 
 use bensomething\placard\fields\SocialImage;
+use bensomething\placard\services\GoogleFonts;
 use Craft;
 use craft\base\Model;
 use craft\elements\Entry;
@@ -51,6 +52,7 @@ class Settings extends Model
         'color' => '{e}Color',
         'colorField' => '{e}ColorField',
         'fontPath' => '{e}FontPath',
+        'googleFont' => '{e}GoogleFont',
         'gap' => '{e}Gap',
         'align' => '{e}Align',
     ];
@@ -137,6 +139,14 @@ class Settings extends Model
         'title' => 'Inter-Bold.ttf',
         'description' => 'Inter-Regular.ttf',
         'meta' => 'Inter-Regular.ttf',
+    ];
+
+    /** The weight each element takes from a Google font that doesn't name one, as with Inter. */
+    public const WEIGHTS = [
+        'label' => 500,
+        'title' => 700,
+        'description' => 400,
+        'meta' => 400,
     ];
 
     public string $position = 'bottom';
@@ -281,6 +291,19 @@ class Settings extends Model
 
     /** @deprecated in 1.0.0-beta.2. Use {@see $titleFontPath}. */
     public string $displayFontPath = '';
+
+    /**
+     * A Google Fonts family for every element, as `Fraunces` or `Fraunces:700`,
+     * downloaded on first use. Without a weight, each element takes its own
+     * ({@see WEIGHTS}). A font path at the same level wins.
+     */
+    public string $googleFont = '';
+
+    /** Each element's own Google font, over {@see $fontPath} and {@see $googleFont}. */
+    public string $titleGoogleFont = '';
+    public string $labelGoogleFont = '';
+    public string $descriptionGoogleFont = '';
+    public string $metaGoogleFont = '';
 
     /** A PNG or SVG. Empty renders no logo. */
     public string $logoPath = '';
@@ -483,18 +506,31 @@ class Settings extends Model
         return $names;
     }
 
-    /** The configured font for an element, or empty for the bundled one. */
-    public function fontPathFor(string $element): string
+    /**
+     * The configured font for an element, as a file path or a Google font, or null for
+     * the bundled one. The element's own font wins over the global one, and at each
+     * level a path wins over a Google font.
+     *
+     * @return array{path: string}|array{google: string}|null
+     */
+    public function fontFor(string $element): ?array
     {
-        $own = match ($element) {
+        $ownPath = match ($element) {
             'title' => $this->titleFontPath ?: $this->displayFontPath,
             'label' => $this->labelFontPath,
             'description' => $this->descriptionFontPath,
             'meta' => $this->metaFontPath,
             default => '',
         };
+        $ownGoogle = isset(self::ELEMENTS[$element]) ? $this->{$element . 'GoogleFont'} : '';
 
-        return $own ?: $this->fontPath;
+        return match (true) {
+            trim($ownPath) !== '' => ['path' => $ownPath],
+            trim($ownGoogle) !== '' => ['google' => $ownGoogle],
+            trim($this->fontPath) !== '' => ['path' => $this->fontPath],
+            trim($this->googleFont) !== '' => ['google' => $this->googleFont],
+            default => null,
+        };
     }
 
     /**
@@ -667,6 +703,7 @@ class Settings extends Model
             ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
             [['padding', 'border'], 'validateSides', 'skipOnEmpty' => false],
             [['backgroundOpacity', 'backgroundImagePathOpacity'], 'number', 'min' => 0, 'max' => 1],
+            [['googleFont', 'titleGoogleFont', 'labelGoogleFont', 'descriptionGoogleFont', 'metaGoogleFont'], 'match', 'pattern' => GoogleFonts::PATTERN],
             [['backgroundColor', 'labelColor', 'titleColor', 'descriptionColor', 'metaColor', 'borderColor'], 'string'],
         ];
     }

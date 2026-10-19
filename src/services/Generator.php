@@ -36,6 +36,9 @@ class Generator extends Component
 
     private Settings $settings;
 
+    /** @var array<string, bool> Font files by whether they can be drawn with. */
+    private static array $usableFonts = [];
+
     public function init(): void
     {
         parent::init();
@@ -114,6 +117,24 @@ class Generator extends Component
         $design = md5(serialize($card->settings->getAttributes()));
 
         return substr(md5("$card->title|$card->label|$card->description|$card->meta|$card->backgroundColor|$token|$bgKey|$design"), 0, 10);
+    }
+
+    /**
+     * Whether a Google font the settings use couldn't be downloaded for a reason that
+     * may pass, like a network error. A card generate() drew meanwhile has Inter in its
+     * place, so shouldn't be kept.
+     */
+    public function fontsPending(Settings $settings): bool
+    {
+        $googleFonts = Plugin::getInstance()->getGoogleFonts();
+        foreach (array_keys(Settings::FONTS) as $element) {
+            $font = $settings->fontFor($element);
+            if (isset($font['google']) && $googleFonts->isPending($font['google'], Settings::WEIGHTS[$element])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function cardToken(Entry $entry): string
@@ -262,8 +283,8 @@ class Generator extends Component
         // Elements flow in one stack, in layout order, so variable-height blocks push
         // each other along rather than overlap.
         $fonts = [];
-        foreach (Settings::FONTS as $element => $bundled) {
-            $fonts[$element] = $this->font($s->fontPathFor($element), $bundled);
+        foreach (array_keys(Settings::FONTS) as $element) {
+            $fonts[$element] = $this->font($s->fontFor($element), $element);
         }
         $texts = ['label' => $label, 'title' => $title, 'description' => $description, 'meta' => $meta];
 
@@ -1127,9 +1148,49 @@ class Generator extends Component
 
     // -- Path resolution
 
-    private function font(string $configured, string $fallback): string
+    /**
+     * The element's font file, or its weight of the bundled Inter when none is set or
+     * the configured one can't be drawn, so a bad font never breaks a card.
+     *
+     * @param array{path?: string, google?: string}|null $font From Settings::fontFor()
+     */
+    private function font(?array $font, string $element): string
     {
-        return $this->path($configured) ?? $this->resource("fonts/$fallback");
+        $bundled = $this->resource('fonts/' . Settings::FONTS[$element]);
+        $path = match (true) {
+            isset($font['path']) => $this->path($font['path']),
+            isset($font['google']) => Plugin::getInstance()->getGoogleFonts()->path($font['google'], Settings::WEIGHTS[$element]),
+            default => null,
+        };
+
+        return $path !== null && $this->isUsableFont($path) ? $path : $bundled;
+    }
+
+    /** Whether FreeType can draw with the file. Checked once a request per file. */
+    private function isUsableFont(string $path): bool
+    {
+        if (isset(self::$usableFonts[$path])) {
+            return self::$usableFonts[$path];
+        }
+
+        if (!is_file($path)) {
+            Craft::warning("Placard couldn't find the font at $path, so it used Inter", __METHOD__);
+
+            return self::$usableFonts[$path] = false;
+        }
+
+        try {
+            $draw = new ImagickDraw();
+            $draw->setFont($path);
+            (new Imagick())->queryFontMetrics($draw, 'H');
+        } catch (\Throwable $e) {
+            // Most often a WOFF2 file with FreeType built without Brotli.
+            Craft::warning("Placard couldn't read the font at $path, so it used Inter. TTF, OTF and WOFF work everywhere, and WOFF2 needs FreeType built with Brotli. ({$e->getMessage()})", __METHOD__);
+
+            return self::$usableFonts[$path] = false;
+        }
+
+        return self::$usableFonts[$path] = true;
     }
 
     /** A configured file's contents, or null when it's empty, missing or unreadable. */

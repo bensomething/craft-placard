@@ -24,7 +24,7 @@ return [
     // e.g. '{summary ?: seoDescription}'. A string sets just the text, false hides it.
     // Sizes are px on the 1200×630 card. lineHeight is a multiple of the size.
     // colorField takes the colour from a field on the entry, falling back to color.
-    // fontPath overrides the fontPath below. gap and align override gap and align.
+    // fontPath and googleFont override the font below. gap and align override gap and align.
     'label' => [
         'text' => '{type.name}',
         'show' => true,
@@ -35,6 +35,7 @@ return [
         'color' => '#a3a3a3',
         'colorField' => '',
         'fontPath' => '',
+        'googleFont' => '',
         'gap' => null,
         'align' => null,
     ],
@@ -60,8 +61,11 @@ return [
         'color' => '#a3a3a3',
     ],
 
-    // Every element's font, unless it sets its own. Empty falls back to the bundled Inter.
+    // Every element's font, unless it sets its own: a TTF, OTF, WOFF or WOFF2 file, or a
+    // Google Fonts family ('Fraunces', or 'Fraunces:700' for one weight throughout),
+    // downloaded once. fontPath wins over googleFont. Both empty use the bundled Inter.
     'fontPath' => '',
+    'googleFont' => '',
 
     // Checked in order for the share image of entries with no Social Image field.
     'imageFieldHandles' => ['seoImage', 'hero', 'featuredImage'],

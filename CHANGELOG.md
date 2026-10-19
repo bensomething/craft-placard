@@ -1,5 +1,14 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Added
+- `googleFont` setting, and a `googleFont` key for each element, to use a Google Fonts family, as `Fraunces` or `Fraunces:700`. Each family and weight is downloaded once into `storage/runtime/placard/fonts/`. Without a weight, each element takes Inter's: Bold title, Medium label, Regular description and meta.
+- Utilities → Caches can clear the downloaded Google Fonts.
+
+### Changed
+- A font that can't be drawn falls back to Inter and logs why, instead of failing the card. That covers a missing or unreadable `fontPath`, a WOFF2 file on a server whose FreeType can't decode it, and a Google family that doesn't exist.
+
 ## 1.0.0-beta.14 - 2026-10-19
 
 ### Added

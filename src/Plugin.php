@@ -7,6 +7,7 @@ use bensomething\placard\integrations\Seomate;
 use bensomething\placard\integrations\Seomatic;
 use bensomething\placard\models\Settings;
 use bensomething\placard\services\Generator;
+use bensomething\placard\services\GoogleFonts;
 use bensomething\placard\web\twig\PlacardVariable;
 use Craft;
 use craft\base\Model;
@@ -41,6 +42,7 @@ class Plugin extends BasePlugin
 
         $this->setComponents([
             'generator' => Generator::class,
+            'googleFonts' => GoogleFonts::class,
         ]);
 
         // Here rather than in onInit(), so the SEOmate hook registers before SEOmate's own.
@@ -86,6 +88,11 @@ class Plugin extends BasePlugin
                     'label' => Craft::t('placard', 'Placard social cards'),
                     'action' => $this->getGenerator()->cachePath(),
                 ];
+                $event->options[] = [
+                    'key' => 'placard-google-fonts',
+                    'label' => Craft::t('placard', 'Placard Google Fonts'),
+                    'action' => $this->getGoogleFonts()->directory(),
+                ];
             }
         );
 
@@ -113,6 +120,11 @@ class Plugin extends BasePlugin
     public function getGenerator(): Generator
     {
         return $this->get('generator');
+    }
+
+    public function getGoogleFonts(): GoogleFonts
+    {
+        return $this->get('googleFonts');
     }
 
     protected function createSettingsModel(): ?Model

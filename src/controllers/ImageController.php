@@ -189,6 +189,11 @@ class ImageController extends Controller
             }
         }
 
+        // Drawn without a Google font that couldn't be downloaded yet, so not to be kept.
+        if ($generator->fontsPending($card->settings)) {
+            $cacheControl = 'no-store';
+        }
+
         $response = Craft::$app->getResponse();
         $response->format = Response::FORMAT_RAW;
         $response->headers->set('Content-Type', $format === 'jpeg' ? 'image/jpeg' : 'image/png');
@@ -211,6 +216,11 @@ class ImageController extends Controller
             $card->settings,
             $format,
         );
+
+        // Left uncached, so a later request draws it with the font.
+        if (Plugin::getInstance()->getGenerator()->fontsPending($card->settings)) {
+            return $content;
+        }
 
         // Written aside and renamed in, so a concurrent request never serves a partial file.
         $tmp = $file . '.' . uniqid('', true) . '.tmp';
