@@ -799,7 +799,7 @@ class Generator extends Component
     /**
      * Unknown values (config skips validation) fall back to a normal blend.
      *
-     * @return Imagick::COMPOSITE_*
+     * @return Imagick::COMPOSITE_MULTIPLY|Imagick::COMPOSITE_SCREEN|Imagick::COMPOSITE_OVERLAY|Imagick::COMPOSITE_DARKEN|Imagick::COMPOSITE_LIGHTEN|Imagick::COMPOSITE_COLORDODGE|Imagick::COMPOSITE_COLORBURN|Imagick::COMPOSITE_HARDLIGHT|Imagick::COMPOSITE_SOFTLIGHT|Imagick::COMPOSITE_DIFFERENCE|Imagick::COMPOSITE_EXCLUSION|Imagick::COMPOSITE_OVER
      */
     private function blendMode(string $mode): int
     {
