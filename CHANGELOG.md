@@ -1,6 +1,6 @@
 # Release Notes for Placard
 
-## Unreleased
+## 1.0.0-beta.16 - 2026-10-20
 
 ### Added
 - The background's `padding` takes CSS shorthand like the main `padding`, as `[0, 0, 0, 600]` for an image on the right half. A single number works as before.
