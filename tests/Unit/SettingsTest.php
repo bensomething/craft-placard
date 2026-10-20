@@ -244,6 +244,25 @@ class SettingsTest extends TestCase
         $this->assertSame([8, 0, 0, 0], $box([8, 'x', 0, 0]));
     }
 
+    public function testBackgroundPaddingReadsAsCssShorthand(): void
+    {
+        $box = fn(mixed $padding): array => array_values((new Settings(['background' => ['padding' => $padding]]))->backgroundBox());
+
+        $this->assertSame([0, 0, 0, 0], $box(0));
+        $this->assertSame([10, 10, 10, 10], $box(10));
+        $this->assertSame([0, 0, 0, 600], $box([0, 0, 0, 600]));
+        $this->assertSame([20, 40, 20, 40], $box([20, 40]));
+        // Unreadable values fall back to no inset, not the padding default.
+        $this->assertSame([0, 0, 0, 0], $box([1, 2, 3, 4, 5]));
+    }
+
+    public function testValidatesBackgroundPadding(): void
+    {
+        $this->assertTrue((new Settings(['background' => ['padding' => [0, 0, 0, 600]]]))->validate());
+        $this->assertFalse((new Settings(['background' => ['padding' => [0, -1]]]))->validate());
+        $this->assertFalse((new Settings(['background' => ['padding' => []]]))->validate());
+    }
+
     public function testTextSitsInsideTheBorder(): void
     {
         $settings = new Settings(['padding' => [60, 80], 'border' => [8, 0, 0, 4]]);

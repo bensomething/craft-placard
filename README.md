@@ -288,7 +288,8 @@ Images from asset fields must be JPEG, PNG, GIF, WebP or AVIF. Anything else, su
 | `useShareImage` | `false` | Fall back to the share image as the background: the Social Image field's pick, else the first image in `imageFieldHandles` |
 | `imagePath` | none | Fixed background image, used last |
 | `fit` | `cover` | `cover` (cropped around the focal point) or `contain` |
-| `padding`, `radius` | `0` | Inset and corner radius in px |
+| `padding` | `0` | Inset in px, as CSS shorthand like the main `padding`, with the canvas colour around it. `[0, 0, 0, 600]` puts the image on the right half |
+| `radius` | `0` | Corner radius in px |
 | `grayscale` | `false` | Set the image in grayscale |
 | `opacity` | `0.25` | Strength of the image. A transparent PNG keeps its transparency, scaled by this |
 | `imagePathOpacity` | none | `opacity` for the `imagePath` image only, so a section can show its photos stronger than the pattern it falls back to |

@@ -321,8 +321,14 @@ class Settings extends Model
 
     public string $backgroundFit = 'cover';
 
-    /** Both fits work within this inset, with the canvas colour in the margin. */
-    public int $backgroundPadding = 0;
+    /**
+     * Both fits work within this inset, with the canvas colour in the margin. CSS
+     * shorthand like {@see $padding}, so `[0, 0, 0, 600]` puts the image on the
+     * right half.
+     *
+     * @var int|array<array-key, mixed>
+     */
+    public int|array $backgroundPadding = 0;
 
     public int $backgroundRadius = 0;
 
@@ -554,6 +560,16 @@ class Settings extends Model
     }
 
     /**
+     * {@see $backgroundPadding} as one value per side.
+     *
+     * @return array{top: int, right: int, bottom: int, left: int}
+     */
+    public function backgroundBox(): array
+    {
+        return $this->sides($this->backgroundPadding, 0);
+    }
+
+    /**
      * Where the text sits: the border and padding together, as in CSS.
      *
      * @return array{top: int, right: int, bottom: int, left: int}
@@ -670,7 +686,7 @@ class Settings extends Model
         }
 
         if (!$valid) {
-            $this->addError($attribute, ucfirst($attribute) . ' must be a non-negative number, or an array of one to four.');
+            $this->addError($attribute, $this->getAttributeLabel($attribute) . ' must be a non-negative number, or an array of one to four.');
         }
     }
 
@@ -695,13 +711,13 @@ class Settings extends Model
             [['titleMaxLines', 'labelMaxLines', 'descriptionMaxLines', 'metaMaxLines'], 'integer', 'min' => 1],
             [['titleLineHeight', 'labelLineHeight', 'descriptionLineHeight', 'metaLineHeight'], 'number', 'min' => 0.1],
             [['titleSize', 'labelSize', 'descriptionSize', 'metaSize', 'logoHeight'], 'integer', 'min' => 1],
-            [['backgroundPadding', 'backgroundRadius', 'backgroundBlur', 'gap', 'labelGap', 'titleGap', 'descriptionGap', 'metaGap'], 'integer', 'min' => 0],
+            [['backgroundRadius', 'backgroundBlur', 'gap', 'labelGap', 'titleGap', 'descriptionGap', 'metaGap'], 'integer', 'min' => 0],
             ['backgroundFit', 'in', 'range' => self::BACKGROUND_FITS],
             ['format', 'in', 'range' => self::FORMATS],
             ['jpegQuality', 'integer', 'min' => 1, 'max' => 100],
             ['seoPlugins', 'boolean'],
             ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
-            [['padding', 'border'], 'validateSides', 'skipOnEmpty' => false],
+            [['padding', 'border', 'backgroundPadding'], 'validateSides', 'skipOnEmpty' => false],
             [['backgroundOpacity', 'backgroundImagePathOpacity'], 'number', 'min' => 0, 'max' => 1],
             [['googleFont', 'titleGoogleFont', 'labelGoogleFont', 'descriptionGoogleFont', 'metaGoogleFont'], 'match', 'pattern' => GoogleFonts::PATTERN],
             [['backgroundColor', 'labelColor', 'titleColor', 'descriptionColor', 'metaColor', 'borderColor'], 'string'],

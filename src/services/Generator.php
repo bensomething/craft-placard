@@ -742,10 +742,11 @@ class Generator extends Component
     {
         $w = $this->settings->width;
         $h = $this->settings->height;
-        // Config values skip validation, so cap padding that would leave no box.
-        $pad = min(max(0, $this->settings->backgroundPadding), (int)floor((min($w, $h) - 1) / 2));
-        $boxW = $w - $pad * 2;
-        $boxH = $h - $pad * 2;
+        $pad = $this->settings->backgroundBox();
+        [$left, $right] = $this->fitInsets($pad['left'], $pad['right'], $w);
+        [$top, $bottom] = $this->fitInsets($pad['top'], $pad['bottom'], $h);
+        $boxW = $w - $left - $right;
+        $boxH = $h - $top - $bottom;
 
         try {
             $bg = new Imagick();
@@ -781,13 +782,31 @@ class Generator extends Component
             $img->compositeImage(
                 $bg,
                 $this->blendMode($this->settings->backgroundBlendMode),
-                (int)round(($w - $bg->getImageWidth()) / 2),
-                (int)round(($h - $bg->getImageHeight()) / 2),
+                $left + (int)round(($boxW - $bg->getImageWidth()) / 2),
+                $top + (int)round(($boxH - $bg->getImageHeight()) / 2),
             );
             $bg->destroy();
         } catch (\Throwable) {
             // Render without a background.
         }
+    }
+
+    /**
+     * Two opposite insets, shrunk in proportion if they'd leave less than 1px
+     * between them. Config values skip validation.
+     *
+     * @return array{0: int, 1: int}
+     */
+    private function fitInsets(int $a, int $b, int $size): array
+    {
+        $room = $size - 1;
+        if ($a + $b <= $room) {
+            return [$a, $b];
+        }
+
+        $a = (int)floor($a * $room / ($a + $b));
+
+        return [$a, $room - $a];
     }
 
     /**
