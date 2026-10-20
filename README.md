@@ -178,6 +178,15 @@ php craft placard/preview --title="Hello world"  # a dummy card
 
 Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `storage/runtime/og-images-preview/`.
 
+Cards render the first time they're asked for, and are cached after that. Crawlers like Facebook's and LinkedIn's give up on slow images, so saving an entry also renders its card in a queue job (see `renderOnSave`). Bulk resaves (`resave/entries`) skip this, as do config changes, which change every card. To render those in one go:
+
+```bash
+php craft placard/generate                          # every entry's card
+php craft placard/generate --section=news --site=en # comma-separate several handles
+```
+
+Also takes `--type`. Cards already cached are skipped, as are entries that share an image of their own.
+
 ## Settings
 
 | Setting | Default | Notes |
@@ -194,6 +203,7 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `defaultImagePath` | `img/og-default.png` | Returned by `default()` |
 | `format` | `auto` | `png`, `jpeg`, or `auto` for JPEG when the card has a background image and PNG otherwise. Photos are several times smaller as JPEG, and flat cards keep crisper text as PNG |
 | `jpegQuality` | `85` | 1 to 100, for cards saved as JPEG |
+| `renderOnSave` | `true` | Render an entry's card in a queue job when it's saved, so the first crawler to ask finds it cached, see *Console* |
 | `seoPlugins` | `true` | Give SEOmatic and SEOmate each entry's share image, see *With SEOmatic or SEOmate* |
 | `sections`, `entryTypes` | `[]` | Overrides by handle |
 | `styles` | `[]` | Named overrides editors choose per entry, see *Styles* |

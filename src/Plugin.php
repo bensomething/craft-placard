@@ -12,7 +12,9 @@ use bensomething\placard\web\twig\PlacardVariable;
 use Craft;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
+use craft\elements\Entry;
 use craft\events\DefineRulesEvent;
+use craft\events\ModelEvent;
 use craft\events\RegisterCacheOptionsEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUrlRulesEvent;
@@ -49,6 +51,19 @@ class Plugin extends BasePlugin
         if ($this->getSettings()->seoPlugins) {
             Seomatic::register();
             Seomate::register();
+        }
+
+        // Each site's save fires this, so every site's card is queued.
+        if ($this->getSettings()->renderOnSave) {
+            Event::on(
+                Entry::class,
+                Entry::EVENT_AFTER_SAVE,
+                function(ModelEvent $event): void {
+                    /** @var Entry $entry */
+                    $entry = $event->sender;
+                    $this->getGenerator()->queueRender($entry);
+                }
+            );
         }
 
         // The .png suffix keeps the URL recognisable as an image to crawlers. Photo

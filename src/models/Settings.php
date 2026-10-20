@@ -403,6 +403,14 @@ class Settings extends Model
      * own settings choose. Off for templates that pass the image themselves.
      */
     public bool $seoPlugins = true;
+
+    /**
+     * Renders an entry's card in a queue job when it's saved, so the first crawler
+     * to ask doesn't wait on it. Crawlers like Facebook's and LinkedIn's give up on
+     * slow images.
+     */
+    public bool $renderOnSave = true;
+
     // -- Per-type overrides ---------------------------------------------------
 
     /**
@@ -430,7 +438,7 @@ class Settings extends Model
      * The fallback image is for pages with no entry, so it can't vary by type. SEO
      * plugins are hooked into once, at startup.
      */
-    public const NOT_OVERRIDABLE = ['sections', 'entryTypes', 'styles', 'defaultImagePath', 'seoPlugins'];
+    public const NOT_OVERRIDABLE = ['sections', 'entryTypes', 'styles', 'defaultImagePath', 'seoPlugins', 'renderOnSave'];
 
     public function __construct($config = [])
     {
@@ -741,7 +749,7 @@ class Settings extends Model
             ['backgroundFit', 'in', 'range' => self::BACKGROUND_FITS],
             ['format', 'in', 'range' => self::FORMATS],
             ['jpegQuality', 'integer', 'min' => 1, 'max' => 100],
-            ['seoPlugins', 'boolean'],
+            [['seoPlugins', 'renderOnSave'], 'boolean'],
             ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
             [['padding', 'border', 'backgroundPadding'], 'validateSides', 'skipOnEmpty' => false],
             [['backgroundOpacity', 'backgroundImagePathOpacity', 'gradientOpacity'], 'number', 'min' => 0, 'max' => 1],

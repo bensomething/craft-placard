@@ -4,6 +4,7 @@ namespace bensomething\placard\services;
 
 use bensomething\placard\events\DefineCardEvent;
 use bensomething\placard\fields\SocialImage;
+use bensomething\placard\jobs\RenderCard;
 use bensomething\placard\models\Settings;
 use bensomething\placard\models\SocialImageValue;
 use bensomething\placard\Plugin;
@@ -16,6 +17,9 @@ use craft\elements\db\EntryQuery;
 use craft\elements\Entry;
 use craft\fields\data\ColorData;
 use craft\helpers\App;
+use craft\helpers\ElementHelper;
+use craft\helpers\FileHelper;
+use craft\helpers\Queue;
 use craft\helpers\UrlHelper;
 use Imagick;
 use ImagickDraw;
@@ -35,6 +39,10 @@ class Generator extends Component
     public const EVENT_DEFINE_CARD = 'defineCard';
 
     private Settings $settings;
+
+    /** @var array<string, true> Entry and site pairs queueRender() has queued this request. */
+    private array $queued = [];
+
     /** @var array<string, bool> Font files by whether they can be drawn with. */
     private static array $usableFonts = [];
 
@@ -184,6 +192,138 @@ class Generator extends Component
     public function cachePath(): string
     {
         return Craft::$app->getPath()->getRuntimePath() . '/og-images';
+    }
+
+    /**
+     * The card's image from the cache, rendering it first if it isn't there.
+     *
+     * @return array{content: string, format: 'png'|'jpeg'}
+     */
+    public function cachedCard(DefineCardEvent $card): array
+    {
+        [$file, $format, $prefixPath] = $this->cacheFile($card);
+
+        // Read straight into memory, so a prune by another request can't remove the file mid-read.
+        $content = is_file($file) ? @file_get_contents($file) : false;
+
+        if ($content === false) {
+            // A newly shared entry draws a burst of crawlers, so one request renders while
+            // the rest wait for its file. Past the timeout, render anyway rather than fail.
+            $mutex = Craft::$app->getMutex();
+            $lock = 'placard-card:' . basename($file);
+            $locked = $mutex->acquire($lock, 15);
+
+            try {
+                $content = is_file($file) ? @file_get_contents($file) : false;
+                if ($content === false) {
+                    $content = $this->renderToCache($card, $format, $file, $prefixPath);
+                }
+            } finally {
+                if ($locked) {
+                    $mutex->release($lock);
+                }
+            }
+        }
+
+        return ['content' => $content, 'format' => $format];
+    }
+
+    /** Whether the card's image is in the cache. */
+    public function isCached(DefineCardEvent $card): bool
+    {
+        return is_file($this->cacheFile($card)[0]);
+    }
+
+    /**
+     * Whether an entry's card is served at all: a live entry with a URL, sharing
+     * the card rather than an image of its own.
+     */
+    public function servesCard(Entry $entry): bool
+    {
+        return !ElementHelper::isDraftOrRevision($entry)
+            && $entry->getStatus() === Entry::STATUS_LIVE
+            && $entry->getUrl() !== null
+            && $this->shareImage($entry) === null;
+    }
+
+    /**
+     * Queues the entry's card to render, so the first crawler to ask finds it
+     * cached. Skipped for bulk resaves, which `placard/generate` covers in one go.
+     */
+    public function queueRender(Entry $entry): void
+    {
+        if ($entry->resaving || !$this->servesCard($entry)) {
+            return;
+        }
+
+        // An entry saves once per site, and a request can save it more than once.
+        $key = "$entry->id-$entry->siteId";
+        if (isset($this->queued[$key])) {
+            return;
+        }
+        $this->queued[$key] = true;
+
+        Queue::push(new RenderCard(['entryId' => $entry->id, 'siteId' => $entry->siteId]));
+    }
+
+    /**
+     * The card's cache file, its format, and the prefix the entry's other cached
+     * versions share.
+     *
+     * @return array{0: string, 1: 'png'|'jpeg', 2: string}
+     */
+    private function cacheFile(DefineCardEvent $card): array
+    {
+        // Config values skip validation, so anything unknown is `auto`.
+        $format = in_array($card->settings->format, ['png', 'jpeg'], true)
+            ? $card->settings->format
+            : ($card->background ? 'jpeg' : 'png');
+        $dir = $this->cachePath();
+        // Per site as well as entry, since an entry's card differs between sites and
+        // the prune in renderToCache() would otherwise delete one site's card for another's.
+        $prefixPath = $dir . '/og-' . $card->entry->id . '-' . $card->entry->siteId . '-';
+
+        return [$prefixPath . $this->cardHash($card) . ($format === 'jpeg' ? '.jpg' : '.png'), $format, $prefixPath];
+    }
+
+    /**
+     * Renders the card into `$file`, then removes the entry's older cards (those starting `$prefixPath`).
+     *
+     * @param 'png'|'jpeg' $format
+     */
+    private function renderToCache(DefineCardEvent $card, string $format, string $file, string $prefixPath): string
+    {
+        $content = $this->generate(
+            $card->title,
+            $card->label,
+            $card->background,
+            $card->meta,
+            $card->description,
+            $card->backgroundColor,
+            $card->settings,
+            $format,
+        );
+
+        // Left uncached, so a later request draws it with the font.
+        if ($this->fontsPending($card->settings)) {
+            return $content;
+        }
+
+        FileHelper::createDirectory(dirname($file));
+        // Written aside and renamed in, so a concurrent request never serves a partial file.
+        $tmp = $file . '.' . uniqid('', true) . '.tmp';
+        if (file_put_contents($tmp, $content) !== false && rename($tmp, $file)) {
+            // The entry's older versions are never requested again, as card URLs change with them.
+            foreach (glob($prefixPath . '*') ?: [] as $old) {
+                if ($old !== $file && !str_ends_with($old, '.tmp')) {
+                    @unlink($old);
+                }
+            }
+        } else {
+            @unlink($tmp);
+        }
+
+        return $content;
     }
 
     /** Most recently updated entry of a section and/or entry type, for the settings preview. */

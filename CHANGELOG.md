@@ -5,6 +5,8 @@
 ### Added
 - The background's `padding` takes CSS shorthand like the main `padding`, as `[0, 0, 0, 600]` for an image on the right half. A single number works as before.
 - `gradient` settings, for a fade from an edge or corner of the card over the background image, to keep text readable over a photo. `'gradient' => '#000000'` fades up from the bottom. `from`, `extent`, `opacity` and `colorField` adjust it.
+- Saving an entry renders its card in a queue job, so the first crawler to ask for it finds it cached rather than waiting on the render. Facebook's and LinkedIn's crawlers give up on slow images. `renderOnSave` turns this off.
+- `php craft placard/generate` renders every card that isn't cached yet, for after a config change or a bulk resave. `--section`, `--type` and `--site` narrow it.
 
 ## 1.0.0-beta.15 - 2026-10-19
 
