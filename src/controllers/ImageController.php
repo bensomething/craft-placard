@@ -65,7 +65,7 @@ class ImageController extends Controller
             $png = $generator->generate(
                 $card->title,
                 $card->label,
-                $card->background,
+                $card->backgroundImage,
                 $card->meta,
                 $card->description,
                 $card->backgroundColor,

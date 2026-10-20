@@ -76,7 +76,7 @@ class Generator extends Component
             'label' => (string)$resolved->renderText($settings->label, $entry, 'label'),
             'description' => $resolved->renderText($settings->description, $entry, 'description'),
             'meta' => $resolved->renderText($settings->meta, $entry, 'meta'),
-            'background' => $resolved->backgroundImage($entry),
+            'backgroundImage' => $resolved->backgroundImage($entry),
             'backgroundColor' => $resolved->entryColor($entry, $settings->backgroundColorField),
         ]);
 
@@ -115,7 +115,7 @@ class Generator extends Component
      */
     public function cardHash(DefineCardEvent $card): string
     {
-        $background = $card->background;
+        $background = $card->backgroundImage;
         $bgKey = $background
             ? $background->id . ':' . ($background->dateModified?->getTimestamp() ?? 0) . ':' . ($background->dateUpdated?->getTimestamp() ?? 0)
             : '';
@@ -152,7 +152,7 @@ class Generator extends Component
     /**
      * The image an entry shares, or null for the generated card. Follows the Social
      * Image field if the layout has one (a choice with no image gives the card),
-     * else the first image in `imageFieldHandles`.
+     * else the first image in `shareImageFields`.
      */
     public function shareImage(Entry $entry): ?Asset
     {
@@ -160,7 +160,7 @@ class Generator extends Component
 
         return $value !== null
             ? $this->chosenImage($entry, $value)
-            : $this->firstImage($entry, $this->settings->forEntry($entry)->imageFieldHandles);
+            : $this->firstImage($entry, $this->settings->forEntry($entry)->shareImageFields);
     }
 
     /** Absolute URL of the image an entry shares, cropped to card size, or the card itself. */
@@ -277,7 +277,7 @@ class Generator extends Component
         // Config values skip validation, so anything unknown is `auto`.
         $format = in_array($card->settings->format, ['png', 'jpeg'], true)
             ? $card->settings->format
-            : ($card->background ? 'jpeg' : 'png');
+            : ($card->backgroundImage ? 'jpeg' : 'png');
         $dir = $this->cachePath();
         // Per site as well as entry, since an entry's card differs between sites and
         // the prune in renderToCache() would otherwise delete one site's card for another's.
@@ -296,7 +296,7 @@ class Generator extends Component
         $content = $this->generate(
             $card->title,
             $card->label,
-            $card->background,
+            $card->backgroundImage,
             $card->meta,
             $card->description,
             $card->backgroundColor,
@@ -628,8 +628,8 @@ class Generator extends Component
     }
 
     /**
-     * The background field's image, else (with `useImageAsBackground`) the image
-     * picked in the Social Image field, else the first in `imageFieldHandles`. Null
+     * The background field's image, else (with `backgroundUseShareImage`) the image
+     * picked in the Social Image field, else the first in `shareImageFields`. Null
      * leaves generate() to use `backgroundImagePath`.
      */
     private function backgroundImage(Entry $entry): ?Asset
@@ -637,11 +637,11 @@ class Generator extends Component
         $field = trim($this->settings->backgroundImageField);
         $asset = $field !== '' ? $this->firstImage($entry, [$field]) : null;
 
-        if ($asset === null && $this->settings->useImageAsBackground) {
+        if ($asset === null && $this->settings->backgroundUseShareImage) {
             // Choosing the card picks no image, so it falls through to the fields.
             $value = SocialImage::valueFor($entry);
             $asset = ($value ? $this->chosenImage($entry, $value) : null)
-                ?? $this->firstImage($entry, $this->settings->imageFieldHandles);
+                ?? $this->firstImage($entry, $this->settings->shareImageFields);
         }
 
         return $asset;
@@ -904,7 +904,7 @@ class Generator extends Component
             if ($this->settings->backgroundBlur > 0) {
                 $this->blur($bg, $this->settings->backgroundBlur);
             }
-            if ($this->settings->backgroundGrayscale || $this->settings->backgroundGreyscale) {
+            if ($this->settings->backgroundGrayscale) {
                 $bg->modulateImage(100, 0, 100);
             }
             // SET keeps the image's own transparency, so a transparent PNG works as a

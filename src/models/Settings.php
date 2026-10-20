@@ -69,7 +69,7 @@ class Settings extends Model
             'color' => 'backgroundColor',
             'colorField' => 'backgroundColorField',
             'imageField' => 'backgroundImageField',
-            'useShareImage' => 'useImageAsBackground',
+            'useShareImage' => 'backgroundUseShareImage',
             'imagePath' => 'backgroundImagePath',
             'imagePathOpacity' => 'backgroundImagePathOpacity',
             'fit' => 'backgroundFit',
@@ -316,9 +316,6 @@ class Settings extends Model
     public string $descriptionFontPath = '';
     public string $metaFontPath = '';
 
-    /** @deprecated in 1.0.0-beta.2. Use {@see $titleFontPath}. */
-    public string $displayFontPath = '';
-
     /**
      * A Google Fonts family for every element, as `Fraunces` or `Fraunces:700`,
      * downloaded on first use. Without a weight, each element takes its own
@@ -337,11 +334,14 @@ class Settings extends Model
 
     // -- Background -----------------------------------------------------------
 
-    /** Falls back to {@see $useImageAsBackground}, then {@see $backgroundImagePath}. */
+    /** Falls back to {@see $backgroundUseShareImage}, then {@see $backgroundImagePath}. */
     public string $backgroundImageField = '';
 
-    /** Uses the entry's first image from {@see $imageFieldHandles}. */
-    public bool $useImageAsBackground = false;
+    /**
+     * Uses the share image: the Social Image field's pick, else the first image in
+     * {@see $shareImageFields}.
+     */
+    public bool $backgroundUseShareImage = false;
 
     /** Used when the entry gives no background image. */
     public string $backgroundImagePath = '';
@@ -361,9 +361,6 @@ class Settings extends Model
 
     public bool $backgroundGrayscale = false;
 
-    /** @deprecated in 1.0.0-beta.2. Use {@see $backgroundGrayscale}. */
-    public bool $backgroundGreyscale = false;
-
     /** Blur strength in px, roughly CSS `blur()`. 0 is sharp. */
     public int $backgroundBlur = 0;
 
@@ -382,10 +379,10 @@ class Settings extends Model
      *
      * @var string[]
      */
-    public array $imageFieldHandles = ['seoImage', 'hero', 'featuredImage'];
+    public array $shareImageFields = ['seoImage', 'hero', 'featuredImage'];
 
-    /** Returned by `craft.placard.default()` for pages with no entry. */
-    public string $defaultImagePath = 'img/og-default.png';
+    /** Returned by `craft.placard.defaultImageUrl()` for pages with no entry. Empty for none. */
+    public string $defaultImagePath = '';
 
     // -- Output ---------------------------------------------------------------
 
@@ -440,14 +437,100 @@ class Settings extends Model
      */
     public const NOT_OVERRIDABLE = ['sections', 'entryTypes', 'styles', 'defaultImagePath', 'seoPlugins', 'renderOnSave'];
 
+    /**
+     * Old setting names and their replacements. Both config keys and PHP properties
+     * still work, logging a deprecation warning.
+     */
+    public const RENAMED = [
+        'displayFontPath' => 'titleFontPath',
+        'backgroundGreyscale' => 'backgroundGrayscale',
+        'useImageAsBackground' => 'backgroundUseShareImage',
+        'imageFieldHandles' => 'shareImageFields',
+    ];
+
+    /**
+     * The old names' defaults. Sites that once saved settings in the CP have every
+     * setting in project config, so an old name at its default is dropped without
+     * a warning, as it changes nothing.
+     */
+    private const RENAMED_DEFAULTS = [
+        'displayFontPath' => '',
+        'backgroundGreyscale' => false,
+        'useImageAsBackground' => false,
+        'imageFieldHandles' => ['seoImage', 'hero', 'featuredImage'],
+    ];
+
+    /** The old default for {@see $defaultImagePath}, still used if it exists and nothing's set. */
+    private const LEGACY_DEFAULT_IMAGE = 'img/og-default.png';
+
+    /** Whether config set {@see $defaultImagePath}, even to empty. */
+    private bool $defaultImagePathSet = false;
+
     public function __construct($config = [])
     {
+        $this->defaultImagePathSet = array_key_exists('defaultImagePath', $config);
         parent::__construct(self::expand($config));
     }
 
     public function setAttributes($values, $safeOnly = true): void
     {
+        $this->defaultImagePathSet = $this->defaultImagePathSet || array_key_exists('defaultImagePath', $values);
         parent::setAttributes(self::expand($values), $safeOnly);
+    }
+
+    public function __get($name)
+    {
+        if (isset(self::RENAMED[$name])) {
+            self::deprecated($name);
+            return $this->{self::RENAMED[$name]};
+        }
+
+        return parent::__get($name);
+    }
+
+    public function __set($name, $value)
+    {
+        if (isset(self::RENAMED[$name])) {
+            self::deprecated($name);
+            $this->{self::RENAMED[$name]} = $value;
+            return;
+        }
+
+        parent::__set($name, $value);
+    }
+
+    public function __isset($name)
+    {
+        return isset(self::RENAMED[$name]) || parent::__isset($name);
+    }
+
+    /**
+     * {@see $defaultImagePath}, or the old default's file for sites that relied on
+     * it without setting anything.
+     */
+    public function defaultImage(): string
+    {
+        $path = trim($this->defaultImagePath);
+        if ($path !== '' || $this->defaultImagePathSet) {
+            return $path;
+        }
+
+        $webroot = Craft::getAlias('@webroot', false);
+        if ($webroot && is_file($webroot . '/' . self::LEGACY_DEFAULT_IMAGE)) {
+            self::deprecated('defaultImagePath', 'Placard\'s `defaultImagePath` no longer defaults to `' . self::LEGACY_DEFAULT_IMAGE . '`. Set it in `config/placard.php` to keep using that image.');
+            return self::LEGACY_DEFAULT_IMAGE;
+        }
+
+        return '';
+    }
+
+    /** Logs a deprecation warning, once Craft is running (unit tests have no app). */
+    public static function deprecated(string $key, ?string $message = null): void
+    {
+        $message ??= "Placard's `$key` setting is deprecated. Use `" . self::RENAMED[$key] . '` instead.';
+        if (Craft::$app !== null) {
+            Craft::$app->getDeprecator()->log("placard.$key", $message);
+        }
     }
 
     /**
@@ -463,6 +546,18 @@ class Settings extends Model
      */
     public static function expand(array $config): array
     {
+        foreach (self::RENAMED as $old => $new) {
+            if (!array_key_exists($old, $config)) {
+                continue;
+            }
+            if ($config[$old] !== self::RENAMED_DEFAULTS[$old]) {
+                self::deprecated($old);
+                // The new name wins where both are set.
+                $config[$new] ??= $config[$old];
+            }
+            unset($config[$old]);
+        }
+
         foreach (self::groups() as $group => [$keys, $shorthand]) {
             if (!array_key_exists($group, $config)) {
                 continue;
@@ -556,7 +651,7 @@ class Settings extends Model
     public function fontFor(string $element): ?array
     {
         $ownPath = match ($element) {
-            'title' => $this->titleFontPath ?: $this->displayFontPath,
+            'title' => $this->titleFontPath,
             'label' => $this->labelFontPath,
             'description' => $this->descriptionFontPath,
             'meta' => $this->metaFontPath,

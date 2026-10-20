@@ -3,6 +3,7 @@
 namespace bensomething\placard\web\twig;
 
 use bensomething\placard\Plugin;
+use Craft;
 use craft\elements\Entry;
 use craft\helpers\UrlHelper;
 
@@ -15,27 +16,43 @@ use craft\helpers\UrlHelper;
 class PlacardVariable
 {
     /** The generated card, cache-busted when the entry or its settings change. */
-    public function url(Entry $entry): string
+    public function cardUrl(Entry $entry): string
     {
         return Plugin::getInstance()->getGenerator()->cardUrl($entry);
     }
 
     /** The static fallback image, for pages with no entry. Null when `defaultImagePath` isn't set. */
-    public function default(): ?string
+    public function defaultImageUrl(): ?string
     {
-        $path = trim(Plugin::getInstance()->getSettings()->defaultImagePath);
+        $path = Plugin::getInstance()->getSettings()->defaultImage();
 
         return $path !== '' ? UrlHelper::siteUrl($path) : null;
     }
 
+    /** @deprecated in 1.0.0-beta.16. Use {@see cardUrl()}. */
+    public function url(Entry $entry): string
+    {
+        Craft::$app->getDeprecator()->log('placard.url', '`craft.placard.url()` is deprecated. Use `craft.placard.cardUrl()` instead.');
+
+        return $this->cardUrl($entry);
+    }
+
+    /** @deprecated in 1.0.0-beta.16. Use {@see defaultImageUrl()}. */
+    public function default(): ?string
+    {
+        Craft::$app->getDeprecator()->log('placard.default', '`craft.placard.default()` is deprecated. Use `craft.placard.defaultImageUrl()` instead.');
+
+        return $this->defaultImageUrl();
+    }
+
     /**
      * The Social Image field's choice, else the first configured image field's, else the card.
-     * Anything that isn't an entry gets default(). Safe to call on any value.
+     * Anything that isn't an entry gets defaultImageUrl(). Safe to call on any value.
      */
     public function shareImageUrl(mixed $entry = null): ?string
     {
         if (!$entry instanceof Entry) {
-            return $this->default();
+            return $this->defaultImageUrl();
         }
 
         return Plugin::getInstance()->getGenerator()->shareImageUrl($entry);
@@ -48,7 +65,7 @@ class PlacardVariable
     public function previewImageUrl(mixed $entry = null): ?string
     {
         if (!$entry instanceof Entry || !$entry->id) {
-            return $this->default();
+            return $this->defaultImageUrl();
         }
 
         return Plugin::getInstance()->getGenerator()->previewImageUrl($entry);

@@ -27,7 +27,7 @@ class CardHashTest extends TestCase
         $card = $this->card();
         $before = $this->hash($card);
 
-        $card->background->dateModified = new DateTime('2026-10-02');
+        $card->backgroundImage->dateModified = new DateTime('2026-10-02');
 
         $this->assertNotSame($before, $this->hash($card));
     }
@@ -38,7 +38,7 @@ class CardHashTest extends TestCase
         $before = $this->hash($card);
 
         // A focal point change saves the asset, but leaves its file's date alone.
-        $card->background->dateUpdated = new DateTime('2026-10-02');
+        $card->backgroundImage->dateUpdated = new DateTime('2026-10-02');
 
         $this->assertNotSame($before, $this->hash($card));
     }
@@ -48,7 +48,7 @@ class CardHashTest extends TestCase
         $card = $this->card();
         $before = $this->hash($card);
 
-        $card->background->id = 2;
+        $card->backgroundImage->id = 2;
 
         $this->assertNotSame($before, $this->hash($card));
     }
@@ -99,8 +99,17 @@ class CardHashTest extends TestCase
             'settings' => new Settings(),
             'title' => 'A title',
             'label' => 'A label',
-            'background' => $background,
+            'backgroundImage' => $background,
         ]);
+    }
+
+    public function testTheOldBackgroundPropertyStillWorks(): void
+    {
+        $card = $this->card();
+
+        $this->assertSame($card->backgroundImage, $card->background);
+        $card->background = null;
+        $this->assertNull($card->backgroundImage);
     }
 
     private function hash(DefineCardEvent $card): string

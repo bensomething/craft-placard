@@ -36,8 +36,27 @@ class DefineCardEvent extends Event
 
     public ?string $meta = null;
 
-    public ?Asset $background = null;
+    public ?Asset $backgroundImage = null;
 
     /** A hex value. Null falls back to the `backgroundColor` setting. */
     public ?string $backgroundColor = null;
+
+    /** @deprecated in 1.0.0-beta.16. Use {@see $backgroundImage}. */
+    public function getBackground(): ?Asset
+    {
+        self::deprecated();
+        return $this->backgroundImage;
+    }
+
+    /** @deprecated in 1.0.0-beta.16. Use {@see $backgroundImage}. */
+    public function setBackground(?Asset $asset): void
+    {
+        self::deprecated();
+        $this->backgroundImage = $asset;
+    }
+
+    private static function deprecated(): void
+    {
+        Settings::deprecated('DefineCardEvent.background', "Placard's `DefineCardEvent::\$background` is deprecated. Use `\$backgroundImage` instead.");
+    }
 }

@@ -46,7 +46,7 @@ class SettingsTest extends TestCase
 
         $resolved = $settings->forTypes('news', null);
 
-        $this->assertSame('img/og-default.png', $resolved->defaultImagePath);
+        $this->assertSame('', $resolved->defaultImagePath);
         $this->assertSame(['news' => $settings->sections['news']], $resolved->sections);
         $this->assertFalse(property_exists($resolved, 'notASetting'));
         $this->assertSame('#ff0000', $resolved->titleColor);
@@ -151,6 +151,51 @@ class SettingsTest extends TestCase
 
         $settings->titleFontPath = '@root/Title.otf';
         $this->assertSame(['path' => '@root/Title.otf'], $settings->fontFor('title'));
+    }
+
+    public function testRenamedSettingsStillWork(): void
+    {
+        $settings = new Settings([
+            'imageFieldHandles' => ['hero'],
+            'useImageAsBackground' => true,
+            'backgroundGreyscale' => true,
+            'sections' => ['news' => ['imageFieldHandles' => ['seo.seoImage']]],
+        ]);
+
+        $this->assertSame(['hero'], $settings->shareImageFields);
+        $this->assertTrue($settings->backgroundUseShareImage);
+        $this->assertTrue($settings->backgroundGrayscale);
+        // In overrides too.
+        $this->assertSame(['seo.seoImage'], $settings->forTypes('news', null)->shareImageFields);
+
+        // And as PHP properties, for DefineCard handlers.
+        $this->assertSame(['hero'], $settings->imageFieldHandles);
+        $settings->useImageAsBackground = false;
+        $this->assertFalse($settings->backgroundUseShareImage);
+    }
+
+    public function testOldNamesAtTheirDefaultsChangeNothing(): void
+    {
+        // As in project config saved by an early beta.
+        $settings = new Settings(['displayFontPath' => '', 'useImageAsBackground' => false, 'shareImageFields' => ['hero']]);
+
+        $this->assertNull($settings->fontFor('title'));
+        $this->assertFalse($settings->backgroundUseShareImage);
+        $this->assertSame(['hero'], $settings->shareImageFields);
+    }
+
+    public function testTheNewNameWinsOverTheOld(): void
+    {
+        $settings = new Settings(['imageFieldHandles' => ['old'], 'shareImageFields' => ['new']]);
+
+        $this->assertSame(['new'], $settings->shareImageFields);
+    }
+
+    public function testNoDefaultImageUnlessSet(): void
+    {
+        $this->assertSame('', (new Settings())->defaultImage());
+        $this->assertSame('img/card.png', (new Settings(['defaultImagePath' => 'img/card.png']))->defaultImage());
+        $this->assertSame('', (new Settings(['defaultImagePath' => '']))->defaultImage());
     }
 
     public function testAnElementsOwnFontWinsOverTheGlobalOne(): void
@@ -387,7 +432,7 @@ class SettingsTest extends TestCase
         $this->assertSame('#1f1f1f', $settings->backgroundColor);
         $this->assertSame('seo.colour', $settings->backgroundColorField);
         $this->assertSame('seo.seoImage', $settings->backgroundImageField);
-        $this->assertTrue($settings->useImageAsBackground);
+        $this->assertTrue($settings->backgroundUseShareImage);
         $this->assertSame('@webroot/bg.png', $settings->backgroundImagePath);
         $this->assertSame('contain', $settings->backgroundFit);
         $this->assertSame(10, $settings->backgroundPadding);

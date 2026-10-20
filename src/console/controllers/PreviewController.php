@@ -45,7 +45,7 @@ class PreviewController extends Controller
 
             $card = $generator->defineCard($entry);
             // The asset itself, not its contents, so a cover crop honours its focal point.
-            $png = $generator->generate($card->title, $card->label, $card->background, $card->meta, $card->description, $card->backgroundColor, $card->settings);
+            $png = $generator->generate($card->title, $card->label, $card->backgroundImage, $card->meta, $card->description, $card->backgroundColor, $card->settings);
             $file = "$dir/entry-$entryId.png";
             file_put_contents($file, $png);
             $this->stdout("Wrote $file\n", Console::FG_GREEN);

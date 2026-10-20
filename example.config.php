@@ -68,7 +68,7 @@ return [
     'googleFont' => '',
 
     // Checked in order for the share image of entries with no Social Image field.
-    'imageFieldHandles' => ['seoImage', 'hero', 'featuredImage'],
+    'shareImageFields' => ['seoImage', 'hero', 'featuredImage'],
 
     // Drawn beside the label, or on its own row with 'logo' in layout. Its width follows
     // its proportions. align applies on its own row; beside the label, it follows the
@@ -82,7 +82,7 @@ return [
 
     // colorField takes the colour from a field on the entry, falling back to color.
     // The image is imageField's, then the share image (if useShareImage), then imagePath.
-    // The share image is the Social Image field's pick, else the first in imageFieldHandles.
+    // The share image is the Social Image field's pick, else the first in shareImageFields.
     'background' => [
         'color' => '#000000',
         'colorField' => '',
@@ -108,8 +108,8 @@ return [
         'colorField' => '',
     ],
 
-    // craft.placard.default()
-    'defaultImagePath' => 'img/og-default.png',
+    // craft.placard.defaultImageUrl(), for pages with no entry, such as 'img/og-default.png'.
+    'defaultImagePath' => '',
 
     // 'png', 'jpeg', or 'auto' for JPEG with a background image and PNG otherwise.
     'format' => 'auto',

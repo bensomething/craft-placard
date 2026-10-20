@@ -72,10 +72,10 @@ A font that can't be drawn (a missing or unreadable file, or a Google family tha
 
 ### Nested fields
 
-Settings that name a field (`imageFieldHandles`, the background's `imageField` and every `colorField`) also take a path into a Matrix or Content Block field. `seo.seoImage` reads `seoImage` from the entries in `seo` and uses the first one with a value. Paths can go more than one level deep.
+Settings that name a field (`shareImageFields`, the background's `imageField` and every `colorField`) also take a path into a Matrix or Content Block field. `seo.seoImage` reads `seoImage` from the entries in `seo` and uses the first one with a value. Paths can go more than one level deep.
 
 ```php
-'imageFieldHandles' => ['seo.seoImage', 'hero'],
+'shareImageFields' => ['seo.seoImage', 'hero'],
 'background' => ['colorField' => 'seo.colour'],
 ```
 
@@ -92,11 +92,11 @@ Card text templates reach nested fields themselves: `'{seo.one().seoTitle ?? tit
 
 | Helper | Returns |
 |---|---|
-| `shareImageUrl(entry)` | The image the entry shares (its Social Image field's choice, else the first image in `imageFieldHandles`, else the card). Anything that isn't an entry gets `default()` |
+| `shareImageUrl(entry)` | The image the entry shares (its Social Image field's choice, else the first image in `shareImageFields`, else the card). Anything that isn't an entry gets `defaultImageUrl()` |
 | `previewImageUrl(entry)` | As `shareImageUrl()`, but the card also renders drafts for logged-in users. For the CP, like a field layout's Template element (`craft.placard.previewImageUrl(element)`), not front-end templates |
 | `entryHasImage(entry)` | Whether that's one of the entry's own images |
-| `url(entry)` | The card's URL. Only live entries with a URL are served, so drafts and entries without a page (nested entries, sections without URLs) can't be read from it |
-| `default()` | `defaultImagePath`, for pages with no entry, or null when it isn't set |
+| `cardUrl(entry)` | The card's URL. Only live entries with a URL are served, so drafts and entries without a page (nested entries, sections without URLs) can't be read from it |
+| `defaultImageUrl()` | `defaultImagePath`, for pages with no entry, or null when it isn't set |
 
 ### With SEOmatic or SEOmate
 
@@ -107,7 +107,7 @@ With SEOmatic or SEOmate installed, Placard gives it each entry's share image. T
 
 Cards are already 1200×630, so neither plugin resizes them. With SEOmatic, use the `summary_large_image` X card so they show at full size.
 
-Set `imageFieldHandles` to the image fields your SEO plugin used, so entries without a Social Image field share the same image as before. Placard reads paths like `seo.seoImage`, but not SEOmate's `field.type:subField` form.
+Set `shareImageFields` to the image fields your SEO plugin used, so entries without a Social Image field share the same image as before. Placard reads paths like `seo.seoImage`, but not SEOmate's `field.type:subField` form.
 
 To pass the image yourself instead, set `'seoPlugins' => false`, then use `craft.placard.shareImageUrl()` wherever you like.
 
@@ -167,7 +167,7 @@ Event::on(Generator::class, Generator::EVENT_DEFINE_CARD, function (DefineCardEv
 });
 ```
 
-The event has `title`, `label`, `description`, `meta`, `background` and `backgroundColor`, plus the card's resolved `settings`, which can be changed for that card alone. An empty value drops that element.
+The event has `title`, `label`, `description`, `meta`, `backgroundImage` and `backgroundColor`, plus the card's resolved `settings`, which can be changed for that card alone. An empty value drops that element.
 
 ### Per site
 
@@ -216,8 +216,8 @@ Also takes `--type`. Cards already cached are skipped, as are entries that share
 | `gap` | `24` | Space below each element in px, between line boxes, so the visible space also takes in line height and descenders. With `between`, gaps between groups are minimums. Elements can set their own |
 | `fontPath` | Inter | Font file for every element, unless it sets its own, see *Fonts*. Unset, each element uses the bundled Inter in its own weight (Bold title, Medium label, Regular description and meta) |
 | `googleFont` | none | Google Fonts family for every element, as `Fraunces` or `Fraunces:700`, see *Fonts*. `fontPath` wins over it |
-| `imageFieldHandles` | `['seoImage', 'hero', 'featuredImage']` | Share image fields for entries without a Social Image field |
-| `defaultImagePath` | `img/og-default.png` | Returned by `default()` |
+| `shareImageFields` | `['seoImage', 'hero', 'featuredImage']` | Share image fields for entries without a Social Image field |
+| `defaultImagePath` | none | Returned by `defaultImageUrl()`, for pages with no entry |
 | `format` | `auto` | `png`, `jpeg`, or `auto` for JPEG when the card has a background image and PNG otherwise. Photos are several times smaller as JPEG, and flat cards keep crisper text as PNG |
 | `jpegQuality` | `85` | 1 to 100, for cards saved as JPEG |
 | `renderOnSave` | `true` | Render an entry's card in a queue job when it's saved, so the first crawler to ask finds it cached, see *Console* |
@@ -303,7 +303,7 @@ A PNG works on every server. Export it at about four times `height` so it stays 
 ],
 ```
 
-A string sets just the colour. The image is the `imageField`'s, then the share image (with `useShareImage`), then `imagePath`. With a Social Image field, the share image is the custom image or image field the editor picked. With the card picked, or no field, it's the first image in `imageFieldHandles`.
+A string sets just the colour. The image is the `imageField`'s, then the share image (with `useShareImage`), then `imagePath`. With a Social Image field, the share image is the custom image or image field the editor picked. With the card picked, or no field, it's the first image in `shareImageFields`.
 
 Images from asset fields must be JPEG, PNG, GIF, WebP or AVIF. Anything else, such as an SVG, is skipped with a warning in the log, as ImageMagick chooses how to read a file from its contents rather than its extension. `imagePath` is set in config, so it isn't checked.
 
@@ -312,7 +312,7 @@ Images from asset fields must be JPEG, PNG, GIF, WebP or AVIF. Anything else, su
 | `color` | `#000000` | Canvas colour |
 | `colorField` | none | A Color field (or hex text field) to take the colour from, falling back to `color` |
 | `imageField` | none | Asset field for the background image |
-| `useShareImage` | `false` | Fall back to the share image as the background: the Social Image field's pick, else the first image in `imageFieldHandles` |
+| `useShareImage` | `false` | Fall back to the share image as the background: the Social Image field's pick, else the first image in `shareImageFields` |
 | `imagePath` | none | Fixed background image, used last |
 | `fit` | `cover` | `cover` (cropped around the focal point) or `contain` |
 | `padding` | `0` | Inset in px, as CSS shorthand like the main `padding`, with the canvas colour around it. `[0, 0, 0, 600]` puts the image on the right half |

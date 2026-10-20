@@ -8,6 +8,19 @@
 - Saving an entry renders its card in a queue job, so the first crawler to ask for it finds it cached rather than waiting on the render. Facebook's and LinkedIn's crawlers give up on slow images. `renderOnSave` turns this off.
 - `php craft placard/generate` renders every card that isn't cached yet, for after a config change or a bulk resave. `--section`, `--type` and `--site` narrow it.
 
+### Changed
+- `defaultImagePath` is empty by default, so pages with no entry share no image until it's set, rather than an `og:image` pointing at `img/og-default.png`, which a new site won't have. Sites that relied on the old default and have that file keep using it, with a deprecation warning, until they set it.
+
+### Deprecated
+- `imageFieldHandles`. Use `shareImageFields`, which says what the fields are for.
+- `craft.placard.url()`. Use `craft.placard.cardUrl()`.
+- `craft.placard.default()`. Use `craft.placard.defaultImageUrl()`.
+- `DefineCardEvent::$background`. Use `$backgroundImage`, as it's the image alone, not the colour too.
+- The `useImageAsBackground` property. Use `backgroundUseShareImage`, after the `background.useShareImage` key that sets it.
+- `displayFontPath` and `backgroundGreyscale`, deprecated in beta.2, now log deprecation warnings.
+
+Each old name still works and logs a deprecation warning (Utilities → Deprecation Warnings). They'll be removed in 2.0.
+
 ## 1.0.0-beta.15 - 2026-10-19
 
 ### Added
