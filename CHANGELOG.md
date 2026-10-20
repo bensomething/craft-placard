@@ -4,6 +4,7 @@
 
 ### Added
 - The background's `padding` takes CSS shorthand like the main `padding`, as `[0, 0, 0, 600]` for an image on the right half. A single number works as before.
+- `gradient` settings, for a fade from an edge or corner of the card over the background image, to keep text readable over a photo. `'gradient' => '#000000'` fades up from the bottom. `from`, `extent`, `opacity` and `colorField` adjust it.
 
 ## 1.0.0-beta.15 - 2026-10-19
 

@@ -85,6 +85,13 @@ class Settings extends Model
             'color' => 'borderColor',
             'colorField' => 'borderColorField',
         ],
+        'gradient' => [
+            'color' => 'gradientColor',
+            'colorField' => 'gradientColorField',
+            'from' => 'gradientFrom',
+            'extent' => 'gradientExtent',
+            'opacity' => 'gradientOpacity',
+        ],
     ];
 
     /** What each group's key sets when given a single value rather than an array. */
@@ -92,7 +99,11 @@ class Settings extends Model
         'logo' => 'path',
         'background' => 'color',
         'border' => 'width',
+        'gradient' => 'color',
     ];
+
+    /** The edge or corner a gradient starts from. */
+    public const GRADIENT_ORIGINS = ['top', 'right', 'bottom', 'left', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight'];
 
     /** `between` pushes the first and last groups to the padding edges. */
     public const POSITIONS = ['top', 'middle', 'bottom', 'between'];
@@ -275,6 +286,22 @@ class Settings extends Model
     public string $metaColorField = '';
     public string $borderColorField = '';
 
+    /**
+     * Colour of the gradient drawn over the background, fading from
+     * {@see $gradientFrom} to clear. Empty means no gradient.
+     */
+    public string $gradientColor = '';
+
+    public string $gradientColorField = '';
+
+    public string $gradientFrom = 'bottom';
+
+    /** How far the gradient reaches across the card, as a fraction from its edge. */
+    public float $gradientExtent = 0.7;
+
+    /** Strength where it starts. */
+    public float $gradientOpacity = 0.8;
+
     // -- Assets ---------------------------------------------------------------
 
     /**
@@ -376,7 +403,6 @@ class Settings extends Model
      * own settings choose. Off for templates that pass the image themselves.
      */
     public bool $seoPlugins = true;
-
     // -- Per-type overrides ---------------------------------------------------
 
     /**
@@ -718,9 +744,11 @@ class Settings extends Model
             ['seoPlugins', 'boolean'],
             ['backgroundBlendMode', 'in', 'range' => self::BLEND_MODES],
             [['padding', 'border', 'backgroundPadding'], 'validateSides', 'skipOnEmpty' => false],
-            [['backgroundOpacity', 'backgroundImagePathOpacity'], 'number', 'min' => 0, 'max' => 1],
+            [['backgroundOpacity', 'backgroundImagePathOpacity', 'gradientOpacity'], 'number', 'min' => 0, 'max' => 1],
+            ['gradientExtent', 'number', 'min' => 0, 'max' => 1],
+            ['gradientFrom', 'in', 'range' => self::GRADIENT_ORIGINS],
             [['googleFont', 'titleGoogleFont', 'labelGoogleFont', 'descriptionGoogleFont', 'metaGoogleFont'], 'match', 'pattern' => GoogleFonts::PATTERN],
-            [['backgroundColor', 'labelColor', 'titleColor', 'descriptionColor', 'metaColor', 'borderColor'], 'string'],
+            [['backgroundColor', 'labelColor', 'titleColor', 'descriptionColor', 'metaColor', 'borderColor', 'gradientColor'], 'string'],
         ];
     }
 

@@ -35,7 +35,6 @@ class Generator extends Component
     public const EVENT_DEFINE_CARD = 'defineCard';
 
     private Settings $settings;
-
     /** @var array<string, bool> Font files by whether they can be drawn with. */
     private static array $usableFonts = [];
 
@@ -55,7 +54,7 @@ class Generator extends Component
         $resolved = $this->withSettings($settings);
 
         // Entry colours go into this card's copy of the settings, which is what draws it.
-        foreach (['label', 'title', 'description', 'meta', 'border'] as $element) {
+        foreach (['label', 'title', 'description', 'meta', 'border', 'gradient'] as $element) {
             $color = $resolved->entryColor($entry, $settings->{$element . 'ColorField'});
             if ($color !== null) {
                 $settings->{$element . 'Color'} = $color;
@@ -275,6 +274,7 @@ class Generator extends Component
             $this->compositeBackground($img, $backgroundBlob, $backgroundColor, $opacity, is_array($focalPoint) ? $focalPoint : null);
         }
 
+        $this->drawGradient($img);
         $this->drawBorder($img);
 
         // Drawn in the label's row (`logoLabel`) or a row of its own (`logo`).
@@ -814,6 +814,64 @@ class Generator extends Component
      * blur at these strengths. gaussianBlurImage() at full size took 14s a card at
      * 12px, and piled up under the settings preview's uncached re-renders.
      */
+    /**
+     * A fade from an edge or corner to clear, over the background image and under
+     * the border. Eased at both ends, as a straight ramp shows a hard line where it
+     * stops. Corners fade as CSS's `to bottom right` and the like, with the halfway
+     * line through the other two corners.
+     */
+    private function drawGradient(Imagick $img): void
+    {
+        $s = $this->settings;
+        // Config values skip validation.
+        $opacity = min(1, max(0, $s->gradientOpacity));
+        $extent = min(1, max(0, $s->gradientExtent));
+        if (trim($s->gradientColor) === '' || $opacity <= 0 || $extent <= 0) {
+            return;
+        }
+
+        // How far a point is from the start, from 0 there to 1 at the far side,
+        // given its position as fractions across (u) and down (v).
+        $distance = match ($s->gradientFrom) {
+            'top' => fn(float $u, float $v): float => $v,
+            'left' => fn(float $u, float $v): float => $u,
+            'right' => fn(float $u, float $v): float => 1 - $u,
+            'topLeft' => fn(float $u, float $v): float => ($u + $v) / 2,
+            'topRight' => fn(float $u, float $v): float => (1 - $u + $v) / 2,
+            'bottomLeft' => fn(float $u, float $v): float => ($u + 1 - $v) / 2,
+            'bottomRight' => fn(float $u, float $v): float => (2 - $u - $v) / 2,
+            default => fn(float $u, float $v): float => 1 - $v,
+        };
+
+        // Worked out at a quarter of the size and scaled up, which a fade this
+        // smooth survives, as PHP is slow at the card's 750,000 pixels.
+        $w = $img->getImageWidth();
+        $h = $img->getImageHeight();
+        $mapW = (int)ceil($w / 4);
+        $mapH = (int)ceil($h / 4);
+        $rgb = $this->color($s->gradientColor)->getColor();
+
+        $pixels = [];
+        for ($y = 0; $y < $mapH; $y++) {
+            for ($x = 0; $x < $mapW; $x++) {
+                $t = max(0, 1 - $distance(($x + 0.5) / $mapW, ($y + 0.5) / $mapH) / $extent);
+                $pixels[] = $rgb['r'];
+                $pixels[] = $rgb['g'];
+                $pixels[] = $rgb['b'];
+                $pixels[] = (int)round(255 * $opacity * $t * $t * (3 - 2 * $t));
+            }
+        }
+
+        $map = new Imagick();
+        $map->newImage($mapW, $mapH, new ImagickPixel('transparent'));
+        $map->setImageFormat('png');
+        $map->importImagePixels(0, 0, $mapW, $mapH, 'RGBA', Imagick::PIXEL_CHAR, $pixels);
+        $map->resizeImage($w, $h, Imagick::FILTER_TRIANGLE, 1);
+
+        $img->compositeImage($map, Imagick::COMPOSITE_OVER, 0, 0);
+        $map->destroy();
+    }
+
     /** Each side's border as a solid bar, over the background image. */
     private function drawBorder(Imagick $img): void
     {

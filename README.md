@@ -198,9 +198,9 @@ Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `s
 | `sections`, `entryTypes` | `[]` | Overrides by handle |
 | `styles` | `[]` | Named overrides editors choose per entry, see *Styles* |
 | `label`, `title`, `description`, `meta` | | Each element's settings, see *Elements* |
-| `logo`, `background`, `border` | | See below |
+| `logo`, `background`, `gradient`, `border` | | See below |
 
-Element, logo, background and border settings are each an array under their name. In `sections` and `entryTypes`, an array changes only the keys it names, so `'border' => ['color' => '#ff0000']` keeps the border's widths.
+Element, logo, background, gradient and border settings are each an array under their name. In `sections` and `entryTypes`, an array changes only the keys it names, so `'border' => ['color' => '#ff0000']` keeps the border's widths.
 
 ### Layout
 
@@ -295,6 +295,22 @@ Images from asset fields must be JPEG, PNG, GIF, WebP or AVIF. Anything else, su
 | `imagePathOpacity` | none | `opacity` for the `imagePath` image only, so a section can show its photos stronger than the pattern it falls back to |
 | `blur` | `0` | Blur strength in px, roughly as CSS `blur()` |
 | `blendMode` | `normal` | How the image blends with the colour: `multiply`, `screen`, `overlay`, `darken`, `lighten`, `color-dodge`, `color-burn`, `hard-light`, `soft-light`, `difference` or `exclusion`, as in CSS |
+
+### Gradient
+
+```php
+'gradient' => ['color' => '#000000', 'from' => 'bottom', 'extent' => 0.6],
+```
+
+A fade from an edge or corner of the card to clear, drawn over the background image and under the border, to keep text readable over a photo without lowering its `opacity`. A string sets just the colour, so `'gradient' => '#000000'` is a fade up from the bottom. There's no gradient until it has a colour, and `'gradient' => ''` turns it off for a section or style.
+
+| Key | Default | Notes |
+|---|---|---|
+| `color` | none | Gradient colour |
+| `colorField` | none | A Color field (or hex text field) to take the colour from, falling back to `color` |
+| `from` | `bottom` | Where it starts: an edge (`top`, `right`, `bottom`, `left`) or a corner (`topLeft`, `topRight`, `bottomLeft`, `bottomRight`). Corners fade as CSS's `to bottom right` and the like, halfway along at the other two corners |
+| `extent` | `0.7` | How far it reaches across the card, from `0` to `1`. From a corner, `1` reaches the opposite corner |
+| `opacity` | `0.8` | Strength where it starts, from `0` to `1`. It eases out to clear |
 
 ### Border
 

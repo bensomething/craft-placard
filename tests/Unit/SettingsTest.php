@@ -263,6 +263,31 @@ class SettingsTest extends TestCase
         $this->assertFalse((new Settings(['background' => ['padding' => []]]))->validate());
     }
 
+    public function testGradientConfig(): void
+    {
+        $settings = new Settings(['gradient' => ['color' => '#000000', 'from' => 'left', 'extent' => 0.5, 'opacity' => 0.6, 'colorField' => 'accent']]);
+
+        $this->assertSame('#000000', $settings->gradientColor);
+        $this->assertSame('left', $settings->gradientFrom);
+        $this->assertSame(0.5, $settings->gradientExtent);
+        $this->assertSame(0.6, $settings->gradientOpacity);
+        $this->assertSame('accent', $settings->gradientColorField);
+
+        // A string sets just the colour, and is off by default.
+        $this->assertSame('#111111', (new Settings(['gradient' => '#111111']))->gradientColor);
+        $this->assertSame('', (new Settings())->gradientColor);
+    }
+
+    public function testValidatesGradient(): void
+    {
+        $this->assertTrue((new Settings(['gradient' => ['color' => '#000', 'from' => 'top']]))->validate());
+        $this->assertTrue((new Settings(['gradient' => ['color' => '#000', 'from' => 'bottomRight']]))->validate());
+        $this->assertFalse((new Settings(['gradient' => ['from' => 'middle']]))->validate());
+        $this->assertFalse((new Settings(['gradient' => ['from' => 'bottom-right']]))->validate());
+        $this->assertFalse((new Settings(['gradient' => ['extent' => 1.5]]))->validate());
+        $this->assertFalse((new Settings(['gradient' => ['opacity' => -0.1]]))->validate());
+    }
+
     public function testTextSitsInsideTheBorder(): void
     {
         $settings = new Settings(['padding' => [60, 80], 'border' => [8, 0, 0, 4]]);
