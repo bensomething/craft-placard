@@ -19,7 +19,7 @@
 - The `useImageAsBackground` property. Use `backgroundUseShareImage`, after the `background.useShareImage` key that sets it.
 - `displayFontPath` and `backgroundGreyscale`, deprecated in beta.2, now log deprecation warnings.
 
-Each old name still works and logs a deprecation warning (Utilities → Deprecation Warnings). They'll be removed in 2.0.
+Each old name still works and logs a deprecation warning (Utilities → Deprecation Warnings). They'll be removed in 1.0.0.
 
 ## 1.0.0-beta.15 - 2026-10-19
 
