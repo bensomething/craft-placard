@@ -169,6 +169,23 @@ Event::on(Generator::class, Generator::EVENT_DEFINE_CARD, function (DefineCardEv
 
 The event has `title`, `label`, `description`, `meta`, `background` and `backgroundColor`, plus the card's resolved `settings`, which can be changed for that card alone. An empty value drops that element.
 
+### Per site
+
+There are no per-site settings in the config yet, but the event can change a card's settings by the entry's site. `setAttributes()` takes the same keys as `config/placard.php`, and its `false` lets it set any of them:
+
+```php
+Event::on(Generator::class, Generator::EVENT_DEFINE_CARD, function (DefineCardEvent $e) {
+    if ($e->entry->getSite()->handle === 'fr') {
+        $e->settings->setAttributes([
+            'background' => '#002395',
+            'title' => ['googleFont' => 'Fraunces'],
+        ], false);
+    }
+});
+```
+
+Use the entry's site rather than the current one, as cards are also drawn by queue jobs and `placard/generate`, outside the site's own requests.
+
 ## Console
 
 ```bash
