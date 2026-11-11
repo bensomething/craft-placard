@@ -41,10 +41,19 @@
         {% endif %}
 
         <div class="placard-si__custom{{ value.source != 'custom' ? ' hidden' }}">
+            {# On Craft 6 the chosen asset posts through the hidden input below rather than
+               the picker. The picker only adds its input once its script has run, so Craft 6
+               sees the field change on every render and autosaves in a loop. #}
+            {% if isCraft6 %}
+                {{ hiddenInput(field.handle ~ '[assetId]', asset.id ?? '', { class: 'placard-si__asset-id' }) }}
+            {% endif %}
+            {# The same input Craft's own Assets fields use. `assetType` is Craft 6's
+               native asset class there (see SocialImage::assetType()). #}
             {{ forms.elementSelect({
                 id: field.handle ~ '-asset',
-                name: field.handle ~ '[assetId]',
-                elementType: 'craft\\elements\\Asset',
+                name: isCraft6 ? false : field.handle ~ '[assetId]',
+                elementType: assetType,
+                jsClass: 'Craft.AssetSelectInput',
                 elements: asset ? [asset] : [],
                 limit: 1,
                 criteria: { kind: ['image'] },
@@ -113,6 +122,63 @@
 
     function isEmpty() {
         return select.value === 'custom' && !custom.querySelector('.elements [data-id]');
+    }
+
+    // Craft 6 only: the picker has no name there, so the choice posts through this
+    // input instead. Only a real change is announced, so Craft doesn't autosave on
+    // every render.
+    var assetInput = root.querySelector('.placard-si__asset-id');
+    function syncAsset() {
+        if (!assetInput) return;
+        var picked = custom.querySelector('.elements [data-id]');
+        var id = picked ? picked.dataset.id : '';
+        if (assetInput.value === id) return;
+        assetInput.value = id;
+        assetInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // Craft 6 only: Craft's components fire change events when they render, not just
+    // when they're edited, and Craft 6 autosaves on any change event from a field. The
+    // save re-renders the field, which fires them again, so the entry autosaves in a
+    // loop. Only let an event out when the field's own values have actually changed.
+    if (assetInput) {
+        var styleSelect = style ? style.querySelector('select') : null;
+        var snapshot = function () {
+            return [select.value, styleSelect ? styleSelect.value : '', assetInput.value].join('|');
+        };
+        var last = snapshot();
+        var guard = function (ev) {
+            var now = snapshot();
+            if (now === last) {
+                ev.stopPropagation();
+                return;
+            }
+            last = now;
+        };
+        ['change', 'input'].forEach(function (type) {
+            root.addEventListener(type, guard);
+        });
+        // Craft 6 also listens for jQuery change events, which never reach the
+        // listeners above, and Garnish-based inputs fire those as they set up.
+        // Only triggered ones: a native event has already been through the guard above.
+        if (window.jQuery) {
+            window.jQuery(root).on('change input', function (ev) {
+                if (!ev.originalEvent) guard(ev);
+            });
+        }
+    }
+
+    // Synced from the picker's own change event rather than from DOM mutations: the
+    // picker redraws its chips after every save, and mid-redraw it briefly has none,
+    // which would read as the image being removed and autosave again. Its event is
+    // stopped here, as the hidden input announces a real change itself.
+    var picker = custom.querySelector('.elementselect');
+    if (assetInput && picker) {
+        picker.addEventListener('change', function (ev) {
+            if (ev.target !== picker) return;
+            ev.stopPropagation();
+            syncAsset();
+        });
     }
 
     function update() {

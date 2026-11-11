@@ -170,7 +170,10 @@ class SocialImage extends Field
         $options = $this->options($element);
         $value = $this->effectiveValue($value, $element);
 
-        $asset = $value->assetId ? Asset::find()->id($value->assetId)->kind('image')->one() : null;
+        // Through the same class as the picker, so on Craft 6 the chosen asset is a
+        // native one and renders with the right permissions (see assetType()).
+        $assetType = self::assetType();
+        $asset = $value->assetId ? $assetType::find()->id($value->assetId)->kind('image')->one() : null;
         // The logged-in preview route, unlike the public one, renders drafts.
         $generator = Plugin::getInstance()->getGenerator();
         $cardUrl = $element->id ? $generator->previewUrl($element) : null;
@@ -185,7 +188,28 @@ class SocialImage extends Field
             'asset' => $asset,
             'imageUrl' => $imageUrl,
             'cardUrl' => $cardUrl,
+            'assetType' => $assetType,
+            'isCraft6' => $assetType !== Asset::class,
         ], View::TEMPLATE_MODE_CP);
+    }
+
+    /**
+     * The asset element class for the asset picker.
+     *
+     * Craft 6's native asset class rather than the Yii2 adapter's legacy one. The
+     * picker sends this class back when it renders the chosen asset, and Craft 6
+     * picks the permissions policy by class: the legacy name gets the generic element
+     * policy, which has no `replaceFile` check, so rendering the chip fails and
+     * nothing can be selected. The chosen asset is loaded through it too, for the
+     * same reason.
+     *
+     * @return class-string<Asset>
+     */
+    private static function assetType(): string
+    {
+        $native = 'CraftCms\\Cms\\Asset\\Elements\\Asset';
+
+        return class_exists($native) ? $native : Asset::class;
     }
 
     public function getSettingsHtml(): ?string

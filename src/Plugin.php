@@ -156,7 +156,7 @@ class Plugin extends BasePlugin
         /** @var Controller $controller */
         $controller = Craft::$app->controller;
 
-        return $controller->asCpScreen()
+        $response = $controller->asCpScreen()
             ->title($this->name)
             ->crumbs([
                 ['label' => Craft::t('app', 'Settings'), 'url' => UrlHelper::cpUrl('settings')],
@@ -181,6 +181,17 @@ class Plugin extends BasePlugin
                 'styleNames' => $this->getSettings()->styleNames(),
                 'unknownHandles' => $this->unknownHandles(),
             ]);
+
+        // On Craft 6 the settings page is served by a Laravel controller, which
+        // can't send the Yii2 adapter's legacy response object. Hand it the
+        // Laravel response behind it, as the adapter's own default does.
+        if (method_exists($response, 'getIlluminateResponse')) {
+            $response->send();
+
+            return $response->getIlluminateResponse();
+        }
+
+        return $response;
     }
 
     /**
