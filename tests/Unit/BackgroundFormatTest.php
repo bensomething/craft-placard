@@ -3,6 +3,7 @@
 namespace bensomething\placard\tests\Unit;
 
 use bensomething\placard\services\Generator;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
@@ -12,9 +13,7 @@ use ReflectionClass;
  */
 class BackgroundFormatTest extends TestCase
 {
-    /**
-     * @dataProvider blobProvider
-     */
+    #[DataProvider('blobProvider')]
     public function testAcceptsOnlyRasterFormats(string $blob, bool $expected): void
     {
         $generator = (new ReflectionClass(Generator::class))->newInstanceWithoutConstructor();

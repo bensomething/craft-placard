@@ -5,6 +5,7 @@ namespace bensomething\placard\tests\Unit;
 use bensomething\placard\services\Generator;
 use craft\elements\Entry;
 use craft\fields\data\ColorData;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use RuntimeException;
@@ -15,9 +16,7 @@ use RuntimeException;
  */
 class EntryColorTest extends TestCase
 {
-    /**
-     * @dataProvider valueProvider
-     */
+    #[DataProvider('valueProvider')]
     public function testReadsColours(mixed $value, ?string $expected): void
     {
         $this->assertSame($expected, $this->entryColor($this->entryReturning($value), 'colour'));
