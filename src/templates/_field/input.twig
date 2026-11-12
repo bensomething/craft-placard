@@ -41,24 +41,29 @@
         {% endif %}
 
         <div class="placard-si__custom{{ value.source != 'custom' ? ' hidden' }}">
-            {# On Craft 6 the chosen asset posts through the hidden input below rather than
-               the picker. The picker only adds its input once its script has run, so Craft 6
-               sees the field change on every render and autosaves in a loop. #}
-            {% if isCraft6 %}
-                {{ hiddenInput(field.handle ~ '[assetId]', asset.id ?? '', { class: 'placard-si__asset-id' }) }}
-            {% endif %}
             {# The same input Craft's own Assets fields use. `assetType` is Craft 6's
-               native asset class there (see SocialImage::assetType()). #}
-            {{ forms.elementSelect({
+               native asset class there (see SocialImage::assetType()). `siteId` is set as
+               Craft's own relation fields set it: the Replace action renders the new chip
+               for that site, and fails without one on Craft 6. #}
+            {% set picker = forms.elementSelect({
                 id: field.handle ~ '-asset',
-                name: isCraft6 ? false : field.handle ~ '[assetId]',
+                name: field.handle ~ '[assetId]',
                 elementType: assetType,
                 jsClass: 'Craft.AssetSelectInput',
                 elements: asset ? [asset] : [],
                 limit: 1,
-                criteria: { kind: ['image'] },
+                criteria: { kind: ['image'], siteId: entry.siteId },
                 selectionLabel: 'Choose an image'|t('placard'),
-            }) }}
+            }) %}
+            {# On Craft 6 the picker is a custom element that fires a change event as it
+               boots, and the entry editor autosaves on it. The field re-renders after every
+               save, so the entry autosaves in a loop. It's held in a template until the
+               script below can listen for that event (see mountPicker()). #}
+            {% if isCraft6 %}
+                <template class="placard-si__picker">{{ picker }}</template>
+            {% else %}
+                {{ picker }}
+            {% endif %}
         </div>
     </div>
 </div>
@@ -124,62 +129,36 @@
         return select.value === 'custom' && !custom.querySelector('.elements [data-id]');
     }
 
-    // Craft 6 only: the picker has no name there, so the choice posts through this
-    // input instead. Only a real change is announced, so Craft doesn't autosave on
-    // every render.
-    var assetInput = root.querySelector('.placard-si__asset-id');
-    function syncAsset() {
-        if (!assetInput) return;
-        var picked = custom.querySelector('.elements [data-id]');
-        var id = picked ? picked.dataset.id : '';
-        if (assetInput.value === id) return;
-        assetInput.value = id;
-        assetInput.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    // Craft 6 only: Craft's components fire change events when they render, not just
-    // when they're edited, and Craft 6 autosaves on any change event from a field. The
-    // save re-renders the field, which fires them again, so the entry autosaves in a
-    // loop. Only let an event out when the field's own values have actually changed.
-    if (assetInput) {
-        var styleSelect = style ? style.querySelector('select') : null;
-        var snapshot = function () {
-            return [select.value, styleSelect ? styleSelect.value : '', assetInput.value].join('|');
-        };
-        var last = snapshot();
-        var guard = function (ev) {
-            var now = snapshot();
-            if (now === last) {
-                ev.stopPropagation();
-                return;
-            }
-            last = now;
-        };
-        ['change', 'input'].forEach(function (type) {
-            root.addEventListener(type, guard);
-        });
-        // Craft 6 also listens for jQuery change events, which never reach the
-        // listeners above, and Garnish-based inputs fire those as they set up.
-        // Only triggered ones: a native event has already been through the guard above.
-        if (window.jQuery) {
-            window.jQuery(root).on('change input', function (ev) {
-                if (!ev.originalEvent) guard(ev);
+    // Craft 6 only: puts the picker in place once its boot-time change event can be
+    // caught. The picker boots the moment it's in the page, and this script runs only
+    // after the field's HTML is in, so a listener added to a picker already there is
+    // too late. Its change events are let through only when the chosen image differs,
+    // so choosing or removing one still autosaves and booting doesn't.
+    function mountPicker() {
+        var template = custom.querySelector('template.placard-si__picker');
+        if (!template) return;
+        var content = document.importNode(template.content, true);
+        var picker = content.querySelector('.elementselect');
+        if (picker) {
+            // The picker's own list rather than its chips: a removed chip is still
+            // there while it animates away, after the change event has fired.
+            var chosen = function () {
+                return (picker.selectedIds || []).join(',');
+            };
+            var last = chosen();
+            picker.addEventListener('change', function (ev) {
+                if (ev.target !== picker) return;
+                var now = chosen();
+                if (now === last) {
+                    ev.stopPropagation();
+                    return;
+                }
+                last = now;
             });
         }
+        template.replaceWith(content);
     }
-
-    // Synced from the picker's own change event rather than from DOM mutations: the
-    // picker redraws its chips after every save, and mid-redraw it briefly has none,
-    // which would read as the image being removed and autosave again. Its event is
-    // stopped here, as the hidden input announces a real change itself.
-    var picker = custom.querySelector('.elementselect');
-    if (assetInput && picker) {
-        picker.addEventListener('change', function (ev) {
-            if (ev.target !== picker) return;
-            ev.stopPropagation();
-            syncAsset();
-        });
-    }
+    mountPicker();
 
     function update() {
         custom.classList.toggle('hidden', select.value !== 'custom');
