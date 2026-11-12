@@ -28,3 +28,14 @@ namespace CraftCms\Cms\Asset\Elements {
         }
     }
 }
+
+namespace CraftCms\Cms\Validation\Events {
+    class ValidationRulesResolving
+    {
+        public object $subject;
+
+        public function addRule(string $attribute, mixed $rule): void
+        {
+        }
+    }
+}
