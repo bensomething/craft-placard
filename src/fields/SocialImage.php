@@ -194,18 +194,18 @@ class SocialImage extends Field
     }
 
     /**
-     * The asset element class for the asset picker.
+     * The asset element class to load and pick assets through.
      *
-     * Craft 6's native asset class rather than the Yii2 adapter's legacy one. The
-     * picker sends this class back when it renders the chosen asset, and Craft 6
-     * picks the permissions policy by class: the legacy name gets the generic element
-     * policy, which has no `replaceFile` check, so rendering the chip fails and
-     * nothing can be selected. The chosen asset is loaded through it too, for the
-     * same reason.
+     * Craft 6's native asset class rather than the Yii2 adapter's legacy one. Craft 6
+     * picks the permissions policy by class, and the legacy name gets the generic
+     * element policy: `canView()` is false for it, and the picker can't render the
+     * chosen asset's chip (no `replaceFile` check), so nothing can be selected. Craft
+     * 6's own fields hand back native assets too, so Placard's asset types take both
+     * (see Generator::isAsset()).
      *
      * @return class-string<Asset>
      */
-    private static function assetType(): string
+    public static function assetType(): string
     {
         $native = 'CraftCms\\Cms\\Asset\\Elements\\Asset';
 

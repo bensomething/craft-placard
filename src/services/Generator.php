@@ -21,6 +21,7 @@ use craft\helpers\ElementHelper;
 use craft\helpers\FileHelper;
 use craft\helpers\Queue;
 use craft\helpers\UrlHelper;
+use CraftCms\Cms\Asset\Elements\Asset as NativeAsset;
 use Imagick;
 use ImagickDraw;
 use ImagickPixel;
@@ -154,7 +155,7 @@ class Generator extends Component
      * Image field if the layout has one (a choice with no image gives the card),
      * else the first image in `shareImageFields`.
      */
-    public function shareImage(Entry $entry): ?Asset
+    public function shareImage(Entry $entry): Asset|NativeAsset|null
     {
         $value = SocialImage::valueFor($entry);
 
@@ -183,9 +184,22 @@ class Generator extends Component
     }
 
     /** An asset's URL cropped to the card's size. */
-    public function assetShareUrl(Asset $asset): ?string
+    public function assetShareUrl(Asset|NativeAsset $asset): ?string
     {
-        return $asset->getUrl(['width' => Settings::WIDTH, 'height' => Settings::HEIGHT, 'mode' => 'crop']) ?: null;
+        $transform = ['width' => Settings::WIDTH, 'height' => Settings::HEIGHT, 'mode' => 'crop'];
+
+        // Craft 6 deprecates transforms through getUrl(). Its transform() throws where
+        // getUrl() gave null, so a failure still falls back to the card.
+        if (method_exists($asset, 'transform')) {
+            try {
+                return $asset->transform($transform)->url ?: null;
+            } catch (\Throwable $e) {
+                Craft::warning("Placard couldn't crop asset $asset->id to card size: {$e->getMessage()}", __METHOD__);
+                return null;
+            }
+        }
+
+        return $asset->getUrl($transform) ?: null;
     }
 
     /** Where served cards are cached. Safe to empty, as cards re-render on request. */
@@ -363,7 +377,7 @@ class Generator extends Component
     public function generate(
         string $title,
         ?string $label = null,
-        Asset|string|null $background = null,
+        Asset|NativeAsset|string|null $background = null,
         ?string $meta = null,
         ?string $description = null,
         ?string $backgroundColor = null,
@@ -389,7 +403,7 @@ class Generator extends Component
         $backgroundBlob = $background;
         $focalPoint = null;
         $opacity = $s->backgroundOpacity;
-        if ($background instanceof Asset) {
+        if (self::isAsset($background)) {
             try {
                 $backgroundBlob = $background->getContents();
             } catch (\Throwable) {
@@ -614,10 +628,12 @@ class Generator extends Component
     }
 
     /** The Social Image field's custom image or image field, or null for the card. */
-    private function chosenImage(Entry $entry, SocialImageValue $value): ?Asset
+    private function chosenImage(Entry $entry, SocialImageValue $value): Asset|NativeAsset|null
     {
         if ($value->source === SocialImageValue::CUSTOM && $value->assetId) {
-            return Asset::find()->id($value->assetId)->kind('image')->one();
+            $assetType = SocialImage::assetType();
+
+            return $assetType::find()->id($value->assetId)->kind('image')->one();
         }
 
         if ($handle = $value->getFieldHandle()) {
@@ -632,7 +648,7 @@ class Generator extends Component
      * picked in the Social Image field, else the first in `shareImageFields`. Null
      * leaves generate() to use `backgroundImagePath`.
      */
-    private function backgroundImage(Entry $entry): ?Asset
+    private function backgroundImage(Entry $entry): Asset|NativeAsset|null
     {
         $field = trim($this->settings->backgroundImageField);
         $asset = $field !== '' ? $this->firstImage($entry, [$field]) : null;
@@ -652,18 +668,30 @@ class Generator extends Component
      *
      * @param string[] $handles Handles or `outer.inner` paths, see fieldValues().
      */
-    private function firstImage(Entry $entry, array $handles): ?Asset
+    private function firstImage(Entry $entry, array $handles): Asset|NativeAsset|null
     {
         foreach ($handles as $handle) {
             foreach ($this->fieldValues($entry, $handle) as $value) {
                 $asset = $value instanceof AssetQuery ? $value->one() : $value;
-                if ($asset instanceof Asset) {
+                if (self::isAsset($asset)) {
                     return $asset;
                 }
             }
         }
 
         return null;
+    }
+
+    /**
+     * Whether a value is an asset. On Craft 6 Craft's own fields give native assets,
+     * which the Yii2 adapter's legacy class extends rather than the other way round,
+     * so they aren't instances of it.
+     *
+     * @phpstan-assert-if-true Asset|NativeAsset $value
+     */
+    private static function isAsset(mixed $value): bool
+    {
+        return $value instanceof NativeAsset || $value instanceof Asset;
     }
 
     /**
