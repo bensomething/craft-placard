@@ -17,6 +17,7 @@ use craft\helpers\Html;
 use craft\helpers\Json;
 use craft\models\FieldLayout;
 use craft\web\View;
+use CraftCms\Cms\Validation\Events\ValidationRulesResolving;
 use yii\base\InvalidConfigException;
 use yii\db\Schema;
 
@@ -250,6 +251,21 @@ class SocialImage extends Field
         ]]];
 
         return $rules;
+    }
+
+    /**
+     * defineRules() for Craft 6, which validates fields with Laravel rules and never
+     * calls defineRules() on them. Added from Plugin::init().
+     */
+    public static function addLaravelRules(ValidationRulesResolving $event): void
+    {
+        $event->addRule('sources', static function(string $attribute, mixed $value, \Closure $fail): void {
+            if (!is_array($value) || $value === []) {
+                $fail(Craft::t('placard', 'Choose at least one source.'));
+            } elseif (array_diff($value, [self::SOURCE_CARD, self::SOURCE_FIELDS, self::SOURCE_CUSTOM]) !== []) {
+                $fail(Craft::t('yii', '{attribute} is invalid.', ['attribute' => Craft::t('placard', 'Sources')]));
+            }
+        });
     }
 
     /**

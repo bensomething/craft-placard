@@ -121,12 +121,16 @@ class Plugin extends BasePlugin
         )) > 1;
         $message = static fn(): string => Craft::t('placard', 'Only one Social Image field can be added to a field layout.');
 
-        // Craft 6 validates field layouts with Laravel rulesets rather than as Yii
-        // models, so they never fire EVENT_DEFINE_RULES.
+        // Craft 6 validates field layouts and fields with Laravel rulesets rather than
+        // as Yii models, so they never fire EVENT_DEFINE_RULES or call defineRules().
         if (class_exists(ValidationRulesResolving::class)) {
             LaravelEvent::listen(
                 ValidationRulesResolving::class,
                 static function(ValidationRulesResolving $event) use ($tooMany, $message): void {
+                    if ($event->subject instanceof SocialImage) {
+                        SocialImage::addLaravelRules($event);
+                        return;
+                    }
                     if (!$event->subject instanceof FieldLayout) {
                         return;
                     }
