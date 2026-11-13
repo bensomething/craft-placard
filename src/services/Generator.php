@@ -873,6 +873,36 @@ class Generator extends Component
     // -- Image helpers
 
     /**
+     * Reads a background image, decoding JPEGs at a reduced scale near twice the box
+     * rather than at full size. A 120-megapixel photo otherwise takes about 800 MB to
+     * decode, and 110 MB like this. Other formats ignore it.
+     *
+     * ImageMagick before 7.1.2 decodes at no less than the size asked for, and later
+     * versions at no more. libjpeg scales in steps of at most a half, so asking for
+     * twice the box gets at least the box either way. The size asked for has the
+     * image's own proportions, so both sides hold. Only for images bigger than that,
+     * as libjpeg would scale smaller ones up. Pinging reads the size from the header
+     * without decoding.
+     */
+    private function readBackground(string $blob, int $boxW, int $boxH): Imagick
+    {
+        $ping = new Imagick();
+        $ping->pingImageBlob($blob);
+        $width = $ping->getImageWidth();
+        $height = $ping->getImageHeight();
+        $ping->destroy();
+
+        $bg = new Imagick();
+        $scale = $width > 0 && $height > 0 ? max($boxW * 2 / $width, $boxH * 2 / $height) : 1;
+        if ($scale < 1) {
+            $bg->setOption('jpeg:size', (int)ceil($width * $scale) . 'x' . (int)ceil($height * $scale));
+        }
+        $bg->readImageBlob($blob);
+
+        return $bg;
+    }
+
+    /**
      * Composites the background image over the base colour. Failures are swallowed
      * so the card still renders.
      *
@@ -889,8 +919,7 @@ class Generator extends Component
         $boxH = $h - $top - $bottom;
 
         try {
-            $bg = new Imagick();
-            $bg->readImageBlob($blob);
+            $bg = $this->readBackground($blob, $boxW, $boxH);
             $bg->setImageBackgroundColor($this->color($backgroundColor));
 
             // Anything but `contain` (including unknown config values) crops to fill
