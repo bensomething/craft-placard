@@ -20,8 +20,19 @@ class BackgroundDecodeTest extends TestCase
         $bg = $this->read($this->image(4000, 3000, 'jpeg'), 600, 315);
 
         $this->assertLessThan(4000, $bg->getImageWidth());
-        $this->assertGreaterThanOrEqual(1200, $bg->getImageWidth());
-        $this->assertGreaterThanOrEqual(630, $bg->getImageHeight());
+        $this->assertGreaterThanOrEqual(600, $bg->getImageWidth());
+        $this->assertGreaterThanOrEqual(315, $bg->getImageHeight());
+    }
+
+    /** Both sides still cover the box, whichever way ImageMagick rounds the scale. */
+    public function testKeepsWideAndTallJpegsCoveringTheBox(): void
+    {
+        foreach ([[8000, 1000], [1000, 8000]] as [$width, $height]) {
+            $bg = $this->read($this->image($width, $height, 'jpeg'), 600, 315);
+
+            $this->assertGreaterThanOrEqual(600, $bg->getImageWidth());
+            $this->assertGreaterThanOrEqual(315, $bg->getImageHeight());
+        }
     }
 
     public function testDecodesSmallJpegsAtFullSize(): void
