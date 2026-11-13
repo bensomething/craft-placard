@@ -1,5 +1,10 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Added
+- Craft 6 support (6.0.0-beta.1 and later). Placard runs through the Yii2 adapter, so install `craftcms/yii2-adapter` alongside it. Craft 6 requires PHP 8.5. The SEOmatic and SEOmate integrations aren't tested on Craft 6 yet.
+
 ## 1.0.0-beta.16 - 2026-10-20
 
 ### Added
