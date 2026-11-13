@@ -873,6 +873,31 @@ class Generator extends Component
     // -- Image helpers
 
     /**
+     * Reads a background image, decoding JPEGs at the smallest scale that's still at
+     * least twice the box each way, rather than at full size. A 120-megapixel photo
+     * otherwise takes about 800 MB to decode, and 110 MB like this. Twice the box
+     * leaves the resize to the box some detail to work with. Other formats ignore it.
+     *
+     * Only for images that big already, as libjpeg would scale smaller ones up to it.
+     * Pinging reads the size from the header without decoding.
+     */
+    private function readBackground(string $blob, int $boxW, int $boxH): Imagick
+    {
+        $ping = new Imagick();
+        $ping->pingImageBlob($blob);
+        $large = $ping->getImageWidth() >= $boxW * 2 && $ping->getImageHeight() >= $boxH * 2;
+        $ping->destroy();
+
+        $bg = new Imagick();
+        if ($large) {
+            $bg->setOption('jpeg:size', ($boxW * 2) . 'x' . ($boxH * 2));
+        }
+        $bg->readImageBlob($blob);
+
+        return $bg;
+    }
+
+    /**
      * Composites the background image over the base colour. Failures are swallowed
      * so the card still renders.
      *
@@ -889,8 +914,7 @@ class Generator extends Component
         $boxH = $h - $top - $bottom;
 
         try {
-            $bg = new Imagick();
-            $bg->readImageBlob($blob);
+            $bg = $this->readBackground($blob, $boxW, $boxH);
             $bg->setImageBackgroundColor($this->color($backgroundColor));
 
             // Anything but `contain` (including unknown config values) crops to fill
