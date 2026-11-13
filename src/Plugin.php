@@ -26,6 +26,8 @@ use craft\utilities\ClearCaches;
 use craft\web\Controller;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
+use CraftCms\Cms\Validation\Events\ValidationRulesResolving;
+use Illuminate\Support\Facades\Event as LaravelEvent;
 use yii\base\Event;
 
 /**
@@ -113,23 +115,47 @@ class Plugin extends BasePlugin
 
         // isMultiInstance() only stops the same field going in twice. This stops two
         // different ones, as only the first would be used (see SocialImage::valueFor()).
-        Event::on(
-            FieldLayout::class,
-            Model::EVENT_DEFINE_RULES,
-            static function(DefineRulesEvent $event): void {
-                /** @var FieldLayout $layout */
-                $layout = $event->sender;
-                $event->rules[] = [['customFields'], static function() use ($layout): void {
-                    $count = count(array_filter(
-                        $layout->getCustomFields(),
-                        static fn($field) => $field instanceof SocialImage,
-                    ));
-                    if ($count > 1) {
-                        $layout->addError('customFields', Craft::t('placard', 'Only one Social Image field can be added to a field layout.'));
+        $tooMany = static fn(array $fields): bool => count(array_filter(
+            $fields,
+            static fn($field) => $field instanceof SocialImage,
+        )) > 1;
+        $message = static fn(): string => Craft::t('placard', 'Only one Social Image field can be added to a field layout.');
+
+        // Craft 6 validates field layouts and fields with Laravel rulesets rather than
+        // as Yii models, so they never fire EVENT_DEFINE_RULES or call defineRules().
+        if (class_exists(ValidationRulesResolving::class)) {
+            LaravelEvent::listen(
+                ValidationRulesResolving::class,
+                static function(ValidationRulesResolving $event) use ($tooMany, $message): void {
+                    if ($event->subject instanceof SocialImage) {
+                        SocialImage::addLaravelRules($event);
+                        return;
                     }
-                }, 'skipOnEmpty' => false];
-            }
-        );
+                    if (!$event->subject instanceof FieldLayout) {
+                        return;
+                    }
+                    $event->addRule('customFields', static function(string $attribute, mixed $value, \Closure $fail) use ($tooMany, $message): void {
+                        if (is_array($value) && $tooMany($value)) {
+                            $fail($message());
+                        }
+                    });
+                }
+            );
+        } else {
+            Event::on(
+                FieldLayout::class,
+                Model::EVENT_DEFINE_RULES,
+                static function(DefineRulesEvent $event) use ($tooMany, $message): void {
+                    /** @var FieldLayout $layout */
+                    $layout = $event->sender;
+                    $event->rules[] = [['customFields'], static function() use ($layout, $tooMany, $message): void {
+                        if ($tooMany($layout->getCustomFields())) {
+                            $layout->addError('customFields', $message());
+                        }
+                    }, 'skipOnEmpty' => false];
+                }
+            );
+        }
     }
 
     public function getGenerator(): Generator
@@ -156,7 +182,7 @@ class Plugin extends BasePlugin
         /** @var Controller $controller */
         $controller = Craft::$app->controller;
 
-        return $controller->asCpScreen()
+        $response = $controller->asCpScreen()
             ->title($this->name)
             ->crumbs([
                 ['label' => Craft::t('app', 'Settings'), 'url' => UrlHelper::cpUrl('settings')],
@@ -181,6 +207,17 @@ class Plugin extends BasePlugin
                 'styleNames' => $this->getSettings()->styleNames(),
                 'unknownHandles' => $this->unknownHandles(),
             ]);
+
+        // On Craft 6 the settings page is served by a Laravel controller, which
+        // can't send the Yii2 adapter's legacy response object. Hand it the
+        // Laravel response behind it, as the adapter's own default does.
+        if (method_exists($response, 'getIlluminateResponse')) {
+            $response->send();
+
+            return $response->getIlluminateResponse();
+        }
+
+        return $response;
     }
 
     /**

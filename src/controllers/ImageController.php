@@ -2,9 +2,9 @@
 
 namespace bensomething\placard\controllers;
 
+use bensomething\placard\fields\SocialImage;
 use bensomething\placard\Plugin;
 use Craft;
-use craft\elements\Asset;
 use craft\elements\Entry;
 use craft\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -124,7 +124,9 @@ class ImageController extends Controller
     {
         $this->requireAcceptsJson();
 
-        $asset = Asset::find()->id((int)$this->request->getRequiredQueryParam('assetId'))->kind('image')->one();
+        // Through Craft 6's native class there, as the legacy one fails canView().
+        $assetType = SocialImage::assetType();
+        $asset = $assetType::find()->id((int)$this->request->getRequiredQueryParam('assetId'))->kind('image')->one();
         if (!$asset || !Craft::$app->getElements()->canView($asset)) {
             throw new NotFoundHttpException('Asset not found.');
         }

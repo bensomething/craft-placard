@@ -17,6 +17,7 @@ use craft\helpers\Html;
 use craft\helpers\Json;
 use craft\models\FieldLayout;
 use craft\web\View;
+use CraftCms\Cms\Validation\Events\ValidationRulesResolving;
 use yii\base\InvalidConfigException;
 use yii\db\Schema;
 
@@ -170,7 +171,10 @@ class SocialImage extends Field
         $options = $this->options($element);
         $value = $this->effectiveValue($value, $element);
 
-        $asset = $value->assetId ? Asset::find()->id($value->assetId)->kind('image')->one() : null;
+        // Through the same class as the picker, so on Craft 6 the chosen asset is a
+        // native one and renders with the right permissions (see assetType()).
+        $assetType = self::assetType();
+        $asset = $value->assetId ? $assetType::find()->id($value->assetId)->kind('image')->one() : null;
         // The logged-in preview route, unlike the public one, renders drafts.
         $generator = Plugin::getInstance()->getGenerator();
         $cardUrl = $element->id ? $generator->previewUrl($element) : null;
@@ -185,7 +189,28 @@ class SocialImage extends Field
             'asset' => $asset,
             'imageUrl' => $imageUrl,
             'cardUrl' => $cardUrl,
+            'assetType' => $assetType,
+            'isCraft6' => $assetType !== Asset::class,
         ], View::TEMPLATE_MODE_CP);
+    }
+
+    /**
+     * The asset element class to load and pick assets through.
+     *
+     * Craft 6's native asset class rather than the Yii2 adapter's legacy one. Craft 6
+     * picks the permissions policy by class, and the legacy name gets the generic
+     * element policy: `canView()` is false for it, and the picker can't render the
+     * chosen asset's chip (no `replaceFile` check), so nothing can be selected. Craft
+     * 6's own fields hand back native assets too, so Placard's asset types take both
+     * (see Generator::isAsset()).
+     *
+     * @return class-string<Asset>
+     */
+    public static function assetType(): string
+    {
+        $native = 'CraftCms\\Cms\\Asset\\Elements\\Asset';
+
+        return class_exists($native) ? $native : Asset::class;
     }
 
     public function getSettingsHtml(): ?string
@@ -226,6 +251,21 @@ class SocialImage extends Field
         ]]];
 
         return $rules;
+    }
+
+    /**
+     * defineRules() for Craft 6, which validates fields with Laravel rules and never
+     * calls defineRules() on them. Added from Plugin::init().
+     */
+    public static function addLaravelRules(ValidationRulesResolving $event): void
+    {
+        $event->addRule('sources', static function(string $attribute, mixed $value, \Closure $fail): void {
+            if (!is_array($value) || $value === []) {
+                $fail(Craft::t('placard', 'Choose at least one source.'));
+            } elseif (array_diff($value, [self::SOURCE_CARD, self::SOURCE_FIELDS, self::SOURCE_CUSTOM]) !== []) {
+                $fail(Craft::t('yii', '{attribute} is invalid.', ['attribute' => Craft::t('placard', 'Sources')]));
+            }
+        });
     }
 
     /**

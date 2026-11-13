@@ -47,7 +47,11 @@ class GenerateController extends Controller
         }
 
         $rendered = $cached = $skipped = 0;
-        foreach ($query->each() as $entry) {
+        // In batches, so big sites don't load every entry at once. Craft 6's each()
+        // takes a callback instead, and lazy() is its batched iterator.
+        $entries = method_exists($query, 'lazy') ? $query->lazy(100) : $query->each();
+
+        foreach ($entries as $entry) {
             /** @var Entry $entry */
             if (!$generator->servesCard($entry)) {
                 $skipped++;

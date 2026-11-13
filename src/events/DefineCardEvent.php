@@ -5,6 +5,7 @@ namespace bensomething\placard\events;
 use bensomething\placard\models\Settings;
 use craft\elements\Asset;
 use craft\elements\Entry;
+use CraftCms\Cms\Asset\Elements\Asset as NativeAsset;
 use yii\base\Event;
 
 /**
@@ -36,20 +37,21 @@ class DefineCardEvent extends Event
 
     public ?string $meta = null;
 
-    public ?Asset $backgroundImage = null;
+    /** On Craft 6, the native asset Craft's own fields give, or the Yii2 adapter's legacy one. */
+    public Asset|NativeAsset|null $backgroundImage = null;
 
     /** A hex value. Null falls back to the `backgroundColor` setting. */
     public ?string $backgroundColor = null;
 
     /** @deprecated in 1.0.0-beta.16. Use {@see $backgroundImage}. */
-    public function getBackground(): ?Asset
+    public function getBackground(): Asset|NativeAsset|null
     {
         self::deprecated();
         return $this->backgroundImage;
     }
 
     /** @deprecated in 1.0.0-beta.16. Use {@see $backgroundImage}. */
-    public function setBackground(?Asset $asset): void
+    public function setBackground(Asset|NativeAsset|null $asset): void
     {
         self::deprecated();
         $this->backgroundImage = $asset;

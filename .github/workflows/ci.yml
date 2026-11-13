@@ -46,6 +46,36 @@ jobs:
 
       - run: composer ${{ matrix.script }}
 
+  # Craft 6 runs Placard through the Yii2 adapter, which sites install themselves.
+  # Tests only: craftcms/phpstan's config is for Craft 5's layout.
+  craft-6:
+    name: test (PHP 8.5, Craft 6)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: imagick
+          coverage: none
+
+      # The SEOmatic and SEOmate versions required for development are Craft 5
+      # only, and PHPUnit 10 can't stub Craft 6's interfaces, which declare
+      # properties. No lock file is committed, so the install resolves from here.
+      - name: Require Craft 6
+        run: |
+          composer remove --dev --no-update nystudio107/craft-seomatic vaersaagod/seomate
+          composer require --dev --no-update "phpunit/phpunit:^12.0"
+          composer require --no-update "craftcms/cms:^6.0.0-beta.1" "craftcms/yii2-adapter:^6.0.0-beta.1"
+          composer config minimum-stability beta
+          composer config prefer-stable true
+
+      - uses: ramsey/composer-install@v3
+
+      - run: composer test
+
   package:
     name: package
     runs-on: ubuntu-latest
