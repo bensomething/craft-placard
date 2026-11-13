@@ -5,6 +5,9 @@
 ### Added
 - Craft 6 support (6.0.0-beta.1 and later). Placard runs through the Yii2 adapter, so install `craftcms/yii2-adapter` alongside it. Craft 6 requires PHP 8.5. The SEOmatic and SEOmate integrations aren't tested on Craft 6 yet.
 
+### Fixed
+- Rendering a card with a very large JPEG background no longer runs out of memory. A 120-megapixel photo took about 800 MB, enough for `php craft placard/generate` to be killed on a small server, and now takes about 100 MB. ([#1](https://github.com/bensomething/craft-placard/issues/1))
+
 ## 1.0.0-beta.16 - 2026-10-20
 
 ### Added
