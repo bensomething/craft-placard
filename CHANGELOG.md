@@ -1,5 +1,10 @@
 # Release Notes for Placard
 
+## Unreleased
+
+### Changed
+- `composer.json` suggests `craftcms/yii2-adapter`, so the Plugin Store marks Placard as needing it on Craft 6, and the README covers installing on Craft 6.
+
 ## 1.0.0-beta.17 - 2026-11-13
 
 ### Added

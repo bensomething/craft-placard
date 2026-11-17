@@ -11,7 +11,7 @@ A card is a combination of four text elements (label, title, description and met
 
 ## Requirements
 
-- Craft CMS 5.10 or later
+- Craft CMS 5.10 or later, or Craft CMS 6 with the Yii2 adapter (see [Craft CMS 6](#craft-cms-6))
 - PHP 8.2 or later
 - The `imagick` PHP extension. SVG logos also need ImageMagick's SVG support (see *Logo*)
 
@@ -28,6 +28,24 @@ Or install from the control panel: **Settings → Plugins**, or from the termina
 ```bash
 php craft plugin/install placard
 ```
+
+### Craft CMS 6
+
+On Craft 6 the plugin runs through Craft's Yii2 adapter, which Composer can't install for you. Require it alongside the plugin:
+
+```bash
+composer require craftcms/yii2-adapter bensomething/craft-placard:^1.0.0-beta
+php artisan craft:plugin:install placard
+```
+
+Projects upgraded with `craft6-revamp` already have the adapter. Craft 6 needs PHP 8.5, and the SEOmatic and SEOmate integrations aren't tested on it yet.
+
+Console commands run through Artisan on Craft 6. The examples below use Craft 5's form, so translate them like this:
+
+| Craft 5 | Craft 6 |
+| --- | --- |
+| `php craft placard/preview` | `php artisan craft:placard:preview` |
+| `php craft placard/generate` | `php artisan craft:placard:generate` |
 
 ## Configure
 
