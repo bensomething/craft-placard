@@ -4,6 +4,7 @@ namespace bensomething\placard\services;
 
 use bensomething\placard\events\DefineCardEvent;
 use bensomething\placard\fields\SocialImage;
+use bensomething\placard\integrations\FeedMe;
 use bensomething\placard\jobs\RenderCard;
 use bensomething\placard\models\Settings;
 use bensomething\placard\models\SocialImageValue;
@@ -262,11 +263,12 @@ class Generator extends Component
 
     /**
      * Queues the entry's card to render, so the first crawler to ask finds it
-     * cached. Skipped for bulk resaves, which `placard/generate` covers in one go.
+     * cached. Skipped for bulk resaves and Feed Me imports, which `placard/generate`
+     * covers in one go.
      */
     public function queueRender(Entry $entry): void
     {
-        if ($entry->resaving || !$this->servesCard($entry)) {
+        if ($entry->resaving || FeedMe::isImporting($entry) || !$this->servesCard($entry)) {
             return;
         }
 

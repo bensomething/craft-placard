@@ -3,6 +3,7 @@
 namespace bensomething\placard;
 
 use bensomething\placard\fields\SocialImage;
+use bensomething\placard\integrations\FeedMe;
 use bensomething\placard\integrations\Seomate;
 use bensomething\placard\integrations\Seomatic;
 use bensomething\placard\models\Settings;
@@ -57,6 +58,7 @@ class Plugin extends BasePlugin
 
         // Each site's save fires this, so every site's card is queued.
         if ($this->getSettings()->renderOnSave) {
+            FeedMe::register();
             Event::on(
                 Entry::class,
                 Entry::EVENT_AFTER_SAVE,

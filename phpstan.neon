@@ -7,3 +7,4 @@ parameters:
         - src
     scanFiles:
         - tests/stubs/craft6.php
+        - tests/stubs/feed-me.php

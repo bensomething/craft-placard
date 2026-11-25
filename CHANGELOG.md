@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- Entries saved by a Feed Me import no longer render their cards on save, as bulk resaves don't. An import could queue a render for every entry it touched. Run `php craft placard/generate` after an import to render them in one go.
 - `composer.json` suggests `craftcms/yii2-adapter`, so the Plugin Store marks Placard as needing it on Craft 6, and the README covers installing on Craft 6.
 
 ## 1.0.0-beta.17 - 2026-11-13

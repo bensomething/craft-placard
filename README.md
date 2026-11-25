@@ -213,7 +213,7 @@ php craft placard/preview --title="Hello world"  # a dummy card
 
 Also takes `--label`, `--description`, `--meta` and `--image`. Output goes to `storage/runtime/og-images-preview/`.
 
-Cards render the first time they're asked for, and are cached after that. Crawlers like Facebook's and LinkedIn's give up on slow images, so saving an entry also renders its card in a queue job (see `renderOnSave`). Bulk resaves (`resave/entries`) skip this, as do config changes, which change every card. To render those in one go:
+Cards render the first time they're asked for, and are cached after that. Crawlers like Facebook's and LinkedIn's give up on slow images, so saving an entry also renders its card in a queue job (see `renderOnSave`). Bulk resaves (`resave/entries`) and Feed Me imports skip this, as do config changes, which change every card. To render those in one go:
 
 ```bash
 php craft placard/generate                          # every entry's card
