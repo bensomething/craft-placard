@@ -26,9 +26,12 @@ class FeedMe
         self::$importing = new WeakMap();
 
         // A class-level handler, so it needs nothing from Feed Me until Feed Me fires it.
+        // The event name is Process::EVENT_STEP_BEFORE_ELEMENT_SAVE written out, because
+        // reading the constant autoloads Process, which fails when Feed Me isn't installed.
+        // (Process::class is resolved at compile time and loads nothing.)
         Event::on(
             Process::class,
-            Process::EVENT_STEP_BEFORE_ELEMENT_SAVE,
+            'onStepBeforeElementSave',
             static function(FeedProcessEvent $event): void {
                 self::markImporting($event->element);
             }
